@@ -117,7 +117,7 @@ function drawTeacher() {
 }
 function reviewBadge() { const n = T.attempts.filter(a => a.status === 'needs_review').length; return n ? ` <span class="badge bad">${n}</span>` : ''; }
 function renderTab() {
-  const f = { today: tabToday, review: tabReview, assign: tabAssign, students: tabStudents, questions: tabQuestions, accounts: tabAccounts, ai: tabAI, settings: tabSettings }[T.tab];
+  const f = { today: tabToday, review: tabReview, assign: tabAssign, students: tabStudents, questions: tabQuestions, videos: (typeof tabVideos === 'function' ? tabVideos : tabToday), accounts: tabAccounts, ai: tabAI, settings: tabSettings }[T.tab];
   Promise.resolve(f()).catch(e => { $('#tb').innerHTML = `<div class="result bad">${esc(errText(e))}</div>`; });
 }
 function setLive(on) {
@@ -137,7 +137,7 @@ function subscribeRealtime() {
 function refreshSoon() {
   clearTimeout(T.timer);
   T.timer = setTimeout(async () => {
-    if (document.querySelector('.modal-bg') || ['assign', 'questions', 'accounts', 'ai', 'settings'].includes(T.tab)) return;
+    if (document.querySelector('.modal-bg') || ['assign', 'questions', 'videos', 'accounts', 'ai', 'settings'].includes(T.tab)) return;
     if (T.tab === 'students' && T.view) return;          // 리포트·상세를 보는 중이면 방해하지 않아요
     if (document.activeElement && ['TEXTAREA', 'INPUT'].includes(document.activeElement.tagName)) return;
     try { await loadTeacher(); drawTeacher(); } catch (e) { /* 다음 번에 다시 시도 */ }

@@ -1,0 +1,110 @@
+/* 심쿵문법 - 선생님 화면 「영상 강의」 탭: 교재·단원별 유튜브 영상 보기/추가/삭제 + 학생 시청 현황 */
+'use strict';
+(function () {
+  try {
+    TAB_ICON.videos = '<rect x="3" y="5" width="18" height="14" rx="3"/><path d="m10 9.5 5 2.5-5 2.5z"/>';
+    const qi = TABS.findIndex(t => t[0] === 'questions');
+    if (!TABS.some(t => t[0] === 'videos')) TABS.splice(qi >= 0 ? qi + 1 : TABS.length, 0, ['videos', '영상 강의']);
+  } catch (e) { /* 탭 등록 실패 시 기존 화면은 그대로 */ }
+})();
+
+const TV = { book: null, vids: [], lec: {}, prog: [] };
+const tvLen = s => { s = Math.round(s || 0); return s ? Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0') : ''; };
+const tvYtId = s => { s = String(s || '').trim(); const m = s.match(/(?:v=|youtu\.be\/|embed\/|shorts\/)([\w-]{11})/); return m ? m[1] : (/^[\w-]{11}$/.test(s) ? s : ''); };
+const tvGradeIdx = b => { const m = String(b || '').match(/(초|중|고)\s?(\d)/); return m ? ({ 초: 0, 중: 10, 고: 20 }[m[1]] + Number(m[2])) : 99; };
+
+async function tvLoad() {
+  const [v, l, p] = await Promise.all([
+    S.sb.from('unit_videos').select('*').order('ord'),
+    S.sb.from('lec_videos').select('id,yt_id'),
+    S.sb.from('lec_progress').select('student_id,video_id,watched_sec,completed,updated_at')
+  ]);
+  if (v.error) throw v.error;
+  TV.vids = v.data || [];
+  TV.lec = Object.fromEntries(((l && l.data) || []).map(x => [x.yt_id, x.id]));
+  TV.prog = (p && p.data) || [];
+}
+function tvStats(yt) {
+  const lid = TV.lec[yt]; if (!lid) return null;
+  const rows = TV.prog.filter(r => r.video_id === lid && (r.watched_sec > 0 || r.completed));
+  return { n: rows.length, done: rows.filter(r => r.completed).length, rows };
+}
+
+async function tabVideos() {
+  const tb = $('#tb'); tb.innerHTML = '<p class="muted">영상 목록을 불러오는 중…</p>';
+  await tvLoad();
+  const books = [...new Set(T.units.map(u => u.school_book).filter(Boolean))].sort((a, b) => tvGradeIdx(a) - tvGradeIdx(b) || a.localeCompare(b, 'ko'));
+  const vidCount = b => TV.vids.filter(v => { const u = T.uById ? T.uById[v.unit_id] : T.units.find(x => x.id === v.unit_id); return u && u.school_book === b; }).length;
+  if (!TV.book || !books.includes(TV.book)) TV.book = books.slice().sort((a, b) => vidCount(b) - vidCount(a))[0] || books[0];
+  const units = T.units.filter(u => u.school_book === TV.book)
+    .sort((a, b) => (parseInt(a.lesson) || 999) - (parseInt(b.lesson) || 999) || String(a.code).localeCompare(String(b.code)));
+  const total = TV.vids.length;
+  const rows = units.map(u => {
+    const vs = TV.vids.filter(v => v.unit_id === u.id).sort((a, b) => a.ord - b.ord);
+    const chips = vs.map(v => {
+      const st = tvStats(v.yt_id);
+      return `<div class="row" style="gap:8px;align-items:center;flex-wrap:wrap;margin-top:6px;padding:8px 10px;border:1px solid #f0e2d8;border-radius:10px;background:#fffdfb">
+        <b style="font-size:14px">🎬 ${esc(v.title)}</b><span class="tiny">${tvLen(v.len_sec)}</span>
+        ${st ? `<span class="badge ${st.n ? 'ok' : 'gray'}">본 학생 ${st.n}명 · 완료 ${st.done}명</span>` : ''}
+        <span style="margin-left:auto"></span>
+        <button class="btn small ghost" data-tvp="${v.id}">미리보기</button>
+        <button class="btn small ghost" data-tvd="${v.id}">빼기</button></div>`;
+    }).join('');
+    return `<div class="card" style="padding:14px 16px;margin-bottom:10px">
+      <div class="row between" style="align-items:center;gap:8px"><div><span class="badge gray">${esc(u.lesson || '')}</span> <b>${esc(u.title)}</b></div>
+      <button class="btn small" data-tva="${u.id}">+ 영상 넣기</button></div>
+      ${chips || '<p class="tiny" style="margin-top:6px">아직 영상이 없어요.</p>'}</div>`;
+  }).join('');
+  tb.innerHTML = `<section class="hero"><div><small>교재·단원별 유튜브 강의</small><h1>영상 강의</h1></div></section>
+    <div class="card soft"><p class="muted" style="margin:0">여기서 넣은 영상은 학생 화면의 해당 단원에 <b>🎬 영상 강의</b> 버튼으로 나와요. 학생에게는 그 단원이 <b>배정</b>되어 있어야 보여요. 지금 연결된 영상은 모두 <b>${total}개</b>예요.</p></div>
+    <div class="row" style="gap:8px;flex-wrap:wrap;margin:12px 0">${books.map(b => `<button class="btn small ${b === TV.book ? '' : 'ghost'}" data-tvb="${esc(b)}">${esc(b)}${vidCount(b) ? ` · 🎬${vidCount(b)}` : ''}</button>`).join('')}</div>
+    ${rows || '<div class="card">이 교재에 등록된 단원이 없어요.</div>'}`;
+  tb.querySelectorAll('[data-tvb]').forEach(b => b.onclick = () => { TV.book = b.dataset.tvb; tabVideos(); });
+  tb.querySelectorAll('[data-tvp]').forEach(b => b.onclick = () => tvPreview(b.dataset.tvp));
+  tb.querySelectorAll('[data-tvd]').forEach(b => b.onclick = () => tvDelete(b.dataset.tvd));
+  tb.querySelectorAll('[data-tva]').forEach(b => b.onclick = () => tvAdd(b.dataset.tva));
+}
+
+function tvPreview(id) {
+  const v = TV.vids.find(x => x.id === id); if (!v) return;
+  const st = tvStats(v.yt_id);
+  const who = st && st.rows.length ? st.rows.map(r => { const s = T.students.find(x => x.id === r.student_id); return `<span class="badge ${r.completed ? 'ok' : ''}" style="margin:2px">${esc(s ? s.name : '?')} ${r.completed ? '✓' : Math.round(r.watched_sec / 60) + '분'}</span>`; }).join('') : '<span class="tiny">아직 본 학생이 없어요.</span>';
+  const ch = (v.chapters || []).map(([t, x]) => `<div class="tiny"><b>${esc(t)}</b> ${esc(x)}</div>`).join('');
+  const bg = modal(`<h3 style="margin-top:0">🎬 ${esc(v.title)}</h3>
+    <div style="position:relative;width:100%;aspect-ratio:16/9;border-radius:10px;overflow:hidden;background:#000"><iframe src="https://www.youtube.com/embed/${esc(v.yt_id)}?rel=0" style="position:absolute;inset:0;width:100%;height:100%;border:0" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe></div>
+    <p style="margin:10px 0 4px"><b>본 학생</b></p><div>${who}</div>
+    ${ch ? `<p style="margin:10px 0 4px"><b>바로가기</b></p>${ch}` : ''}
+    <div class="row between" style="margin-top:12px"><a class="btn small ghost" href="https://www.youtube.com/watch?v=${esc(v.yt_id)}" target="_blank" rel="noopener">유튜브에서 열기</a><button class="btn small" id="tvx">닫기</button></div>`);
+  bg.querySelector('#tvx').onclick = () => bg.remove();
+}
+
+async function tvDelete(id) {
+  const v = TV.vids.find(x => x.id === id); if (!v) return;
+  if (!confirm(`「${v.title}」 영상을 이 단원에서 뺄까요?\n(유튜브 영상과 학생 시청 기록은 지워지지 않아요)`)) return;
+  const { error } = await S.sb.from('unit_videos').delete().eq('id', id);
+  if (error) return toast('빼지 못했어요: ' + error.message);
+  toast('단원에서 영상을 뺐어요'); tabVideos();
+}
+
+function tvAdd(unitId) {
+  const u = T.units.find(x => x.id === unitId); if (!u) return;
+  const n = TV.vids.filter(v => v.unit_id === unitId).length;
+  const bg = modal(`<h3 style="margin-top:0">+ 영상 넣기</h3><p class="tiny">${esc(u.school_book)} · ${esc(u.title)}</p>
+    <label class="tiny">유튜브 주소</label><input id="tvu" placeholder="https://youtu.be/… 또는 https://www.youtube.com/watch?v=…" style="width:100%">
+    <label class="tiny" style="display:block;margin-top:8px">영상 이름 (학생에게 보이는 이름)</label><input id="tvt" placeholder="예: 5과 문법① 분사" style="width:100%">
+    <label class="tiny" style="display:block;margin-top:8px">길이 (예: 13:29, 몰라도 돼요)</label><input id="tvl" placeholder="13:29" style="width:100%">
+    <label class="tiny" style="display:block;margin-top:8px">바로가기 (한 줄에 하나씩 "00:36 분사 개념", 없어도 돼요)</label><textarea id="tvc" rows="5" style="width:100%" placeholder="00:00 시작&#10;00:36 분사 개념"></textarea>
+    <div class="row between" style="margin-top:12px"><button class="btn small ghost" id="tvcx">취소</button><button class="btn small" id="tvok">넣기</button></div>`);
+  bg.querySelector('#tvcx').onclick = () => bg.remove();
+  bg.querySelector('#tvok').onclick = async () => {
+    const yt = tvYtId(bg.querySelector('#tvu').value), title = bg.querySelector('#tvt').value.trim();
+    if (!yt) return toast('유튜브 주소를 확인해 주세요');
+    if (!title) return toast('영상 이름을 넣어 주세요');
+    const lt = bg.querySelector('#tvl').value.trim(); let len = null;
+    if (lt) { const p = lt.split(':').map(Number); len = p.length === 3 ? p[0] * 3600 + p[1] * 60 + p[2] : p.length === 2 ? p[0] * 60 + p[1] : null; }
+    const chapters = bg.querySelector('#tvc').value.split('\n').map(l => l.trim().match(/^(\d{1,2}:\d{2}(?::\d{2})?)\s+(.+)$/)).filter(Boolean).map(m => [m[1], m[2]]);
+    const { error } = await S.sb.from('unit_videos').upsert({ unit_id: unitId, yt_id: yt, title, len_sec: len, chapters, ord: n + 1 }, { onConflict: 'unit_id,yt_id' });
+    if (error) return toast('넣지 못했어요: ' + error.message);
+    bg.remove(); toast('영상을 넣었어요 ♥'); tabVideos();
+  };
+}
