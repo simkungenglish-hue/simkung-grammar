@@ -143,7 +143,7 @@ async function loadStudent() {
   ST.concepts = c.data || []; ST.questions = q.data || [];
   ST.allAttempts = t.data || [];
   try { const dk = await S.sb.from('lesson_decks').select('id,deck_key,unit_id,ord,title,paths').order('ord'); ST.decks = dk.error ? [] : (dk.data || []); } catch (e) { ST.decks = []; }
-  try { const uv = await S.sb.from('unit_videos').select('id,unit_id,yt_id,title,len_sec,chapters,ord').order('ord'); ST.videos = uv.error ? [] : (uv.data || []); } catch (e) { ST.videos = []; }
+  try { const uv = await S.sb.from('unit_videos').select('id,unit_id,yt_id,title,len_sec,chapters,ord,school_book,lesson,no').order('ord'); ST.videos = uv.error ? [] : (uv.data || []); } catch (e) { ST.videos = []; }
   try { const lv = await S.sb.from('lec_videos').select('id,yt_id'); ST.lecIds = Object.fromEntries(((lv && lv.data) || []).map(x => [x.yt_id, x.id])); } catch (e) { ST.lecIds = {}; }
   ST.attempts = ST.allAttempts.filter(x => (x.round || 1) === (cr[x.assignment_id] || 1));
 }
@@ -217,11 +217,12 @@ function bindHome() {
   document.querySelectorAll('[data-u]').forEach(b => b.onclick = () => unitView(b.dataset.u));
   document.querySelectorAll('[data-deck]').forEach(b => b.onclick = () => deckView(b.dataset.deck, 0, b.dataset.back || 'home'));
   bindVid();
+  const lo = document.getElementById('libOpen'); if (lo) lo.onclick = () => libView();
 }
 function studentHome() {
   const nae = ST.asg.filter(isNaesin), gen = ST.asg.filter(a => !isNaesin(a));
   const hub = nae.length ? `<div class="card soft"><div class="row between"><div><h2 style="margin:0">📘 중등 내신</h2><div class="muted">교과서로 시험 준비를 해요.</div></div><button class="btn" id="nh">열기</button></div></div>` : '';
-  shell(`<h1>오늘의 공부</h1>${hub}${gen.map(asgCard).join('') || (nae.length ? '' : '<div class="card">아직 배정된 단원이 없어요. 원장님께 물어보세요.</div>')}
+  shell(`<h1>오늘의 공부</h1>${hub}${libCard()}${gen.map(asgCard).join('') || (nae.length ? '' : '<div class="card">아직 배정된 단원이 없어요. 원장님께 물어보세요.</div>')}
     <div class="card"><div class="row between"><div><h3 style="margin:0">오답노트</h3><div class="muted">틀린 문제를 다시 확인해요.</div></div><button class="btn ghost" id="wr">열기</button></div></div>`);
   bindHome();
   if ($('#nh')) $('#nh').onclick = () => naesinHub();
@@ -265,6 +266,30 @@ function vidBox(unitId, back, compact) {
     ? `<div class="card soft" style="margin:8px 0 0"><div class="tiny"><b>🎬 영상 강의</b> — 스텔라쌤 영상으로 먼저 개념을 잡아요</div>${btns}</div>`
     : `<div class="card soft"><h3>🎬 영상 강의</h3><p class="muted">스텔라쌤 영상으로 개념을 먼저 잡고, 문제로 확인해요.</p>${btns}</div>`;
 }
+function myLib() {
+  const g = String((S.profile && S.profile.grade) || '').trim(); if (!g) return [];
+  const seen = new Set();
+  return (ST.videos || []).filter(v => v.school_book && v.school_book.trim().endsWith(g))
+    .sort((a, b) => String(a.school_book).localeCompare(String(b.school_book), 'ko') || (a.lesson || 0) - (b.lesson || 0) || (a.no || 0) - (b.no || 0))
+    .filter(v => { const k = v.school_book + '|' + v.yt_id; if (seen.has(k)) return false; seen.add(k); return true; });
+}
+function libCard() {
+  const vs = myLib(); if (!vs.length) return '';
+  const books = [...new Set(vs.map(v => v.school_book))];
+  return `<div class="card soft"><div class="row between"><div><h2 style="margin:0">🎬 영상 강의실</h2><div class="muted">${esc(books.join(' · '))} 교과서 문법 영상 ${vs.length}개</div></div><button class="btn" id="libOpen">열기</button></div></div>`;
+}
+function libView() {
+  const vs = myLib();
+  const books = [...new Set(vs.map(v => v.school_book))];
+  const body = books.map(b => {
+    const bv = vs.filter(v => v.school_book === b);
+    const ls = [...new Set(bv.map(v => v.lesson))];
+    return `<h2 style="margin:18px 0 8px">${esc(b)}</h2>` + ls.map(l => `<div class="card" style="padding:12px 14px;margin-bottom:8px"><b>${l === 99 ? '외부지문' : (l ? l + '과' : '기타')}</b><div>${bv.filter(v => v.lesson === l).map(v => `<button class="btn small ${v.no === 2 ? 'ghost' : ''}" style="margin:6px 6px 0 0" data-vid="${v.id}" data-back="lib">▶ ${esc(String(v.title).replace(/^\d+과 /, ''))} <span style="opacity:.75;font-weight:400">${fmtLen(v.len_sec)}</span></button>`).join('')}</div></div>`).join('');
+  }).join('');
+  shell(`<p><a href="#" id="back">← 처음으로</a></p><h1>🎬 영상 강의실</h1><p class="muted">교과서 과별 문법 영상이에요. 개념을 영상으로 먼저 잡고, 배정된 단원 문제로 확인해요.</p>${body || '<div class="card">아직 내 학년 영상이 없어요.</div>'}`);
+  $('#back').onclick = e => { e.preventDefault(); studentHome(); };
+  bindVid();
+}
 function bindVid() { document.querySelectorAll('[data-vid]').forEach(b => b.onclick = () => videoView(b.dataset.vid, b.dataset.back || 'home')); }
 const VID = { player: null, timer: null, acc: 0, last: null, lecId: null, viewSent: false };
 function loadYT() {
@@ -290,7 +315,7 @@ async function videoView(vid, back) {
     <p class="tiny" style="margin-top:8px">처음엔 끝까지 쭉 보고, 퀴즈가 나오면 멈추고 먼저 풀어 보세요. 마지막 '한눈에 정리'는 노트에 옮겨 적어요.</p>
     ${ch ? `<h3 style="margin-top:12px">▶ 바로가기</h3><div>${ch}</div>` : ''}
     <p style="margin-top:12px"><a class="btn small ghost" href="https://www.youtube.com/watch?v=${esc(v.yt_id)}" target="_blank" rel="noopener">유튜브 앱에서 보기</a></p></div>`);
-  const home = () => { vidStop(); back === 'gr' ? naesinGrammar() : /^u/.test(back) ? unitView(back.slice(1)) : studentHome(); };
+  const home = () => { vidStop(); back === 'lib' ? libView() : back === 'gr' ? naesinGrammar() : /^u/.test(back) ? unitView(back.slice(1)) : studentHome(); };
   $('#back').onclick = e => { e.preventDefault(); home(); };
   await loadYT();
   if (!document.getElementById('ytbox')) return;

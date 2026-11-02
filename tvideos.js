@@ -33,8 +33,8 @@ function tvStats(yt) {
 async function tabVideos() {
   const tb = $('#tb'); tb.innerHTML = '<p class="muted">영상 목록을 불러오는 중…</p>';
   await tvLoad();
-  const books = [...new Set(T.units.map(u => u.school_book).filter(Boolean))].sort((a, b) => tvGradeIdx(a) - tvGradeIdx(b) || a.localeCompare(b, 'ko'));
-  const vidCount = b => TV.vids.filter(v => { const u = T.uById ? T.uById[v.unit_id] : T.units.find(x => x.id === v.unit_id); return u && u.school_book === b; }).length;
+  const books = [...new Set(T.units.map(u => u.school_book).concat(TV.vids.map(v => v.school_book)).filter(Boolean))].sort((a, b) => tvGradeIdx(a) - tvGradeIdx(b) || a.localeCompare(b, 'ko'));
+  const vidCount = b => new Set(TV.vids.filter(v => v.school_book === b).map(v => v.yt_id)).size;
   if (!TV.book || !books.includes(TV.book)) TV.book = books.slice().sort((a, b) => vidCount(b) - vidCount(a))[0] || books[0];
   const units = T.units.filter(u => u.school_book === TV.book)
     .sort((a, b) => (parseInt(a.lesson) || 999) - (parseInt(b.lesson) || 999) || String(a.code).localeCompare(String(b.code)));
@@ -58,11 +58,53 @@ async function tabVideos() {
   tb.innerHTML = `<section class="hero"><div><small>교재·단원별 유튜브 강의</small><h1>영상 강의</h1></div></section>
     <div class="card soft"><p class="muted" style="margin:0">여기서 넣은 영상은 학생 화면의 해당 단원에 <b>🎬 영상 강의</b> 버튼으로 나와요. 학생에게는 그 단원이 <b>배정</b>되어 있어야 보여요. 지금 연결된 영상은 모두 <b>${total}개</b>예요.</p></div>
     <div class="row" style="gap:8px;flex-wrap:wrap;margin:12px 0">${books.map(b => `<button class="btn small ${b === TV.book ? '' : 'ghost'}" data-tvb="${esc(b)}">${esc(b)}${vidCount(b) ? ` · 🎬${vidCount(b)}` : ''}</button>`).join('')}</div>
-    ${rows || '<div class="card">이 교재에 등록된 단원이 없어요.</div>'}`;
+    ${tvLibSection()}${rows || ''}`;
   tb.querySelectorAll('[data-tvb]').forEach(b => b.onclick = () => { TV.book = b.dataset.tvb; tabVideos(); });
   tb.querySelectorAll('[data-tvp]').forEach(b => b.onclick = () => tvPreview(b.dataset.tvp));
   tb.querySelectorAll('[data-tvd]').forEach(b => b.onclick = () => tvDelete(b.dataset.tvd));
   tb.querySelectorAll('[data-tva]').forEach(b => b.onclick = () => tvAdd(b.dataset.tva));
+  tb.querySelectorAll('[data-tvlib]').forEach(b => b.onclick = () => tvAddLib());
+}
+
+
+function tvChip(v) {
+  const st = tvStats(v.yt_id);
+  return `<div class="row" style="gap:8px;align-items:center;flex-wrap:wrap;margin-top:6px;padding:8px 10px;border:1px solid #f0e2d8;border-radius:10px;background:#fffdfb">
+    <b style="font-size:14px">🎬 ${esc(v.title)}</b><span class="tiny">${tvLen(v.len_sec)}</span>
+    ${st ? `<span class="badge ${st.n ? 'ok' : 'gray'}">본 학생 ${st.n}명 · 완료 ${st.done}명</span>` : ''}
+    <span style="margin-left:auto"></span>
+    <button class="btn small ghost" data-tvp="${v.id}">미리보기</button>
+    <button class="btn small ghost" data-tvd="${v.id}">빼기</button></div>`;
+}
+function tvLibSection() {
+  const lv = TV.vids.filter(v => !v.unit_id && v.school_book === TV.book).sort((a, b) => (a.lesson || 0) - (b.lesson || 0) || (a.no || 0) - (b.no || 0));
+  const ls = [...new Set(lv.map(v => v.lesson))];
+  const inner = ls.map(l => `<div style="margin-top:10px"><span class="badge gray">${l === 99 ? '외부지문' : (l ? l + '과' : '기타')}</span>${lv.filter(v => v.lesson === l).map(tvChip).join('')}</div>`).join('');
+  return `<div class="card" style="padding:14px 16px;margin-bottom:14px;border:2px solid #ffd2db">
+    <div class="row between" style="align-items:center;gap:8px"><div><b>📚 ${esc(TV.book)} 영상 강의실</b><div class="tiny">이 교재·학년 학생 화면의 「🎬 영상 강의실」에 과별로 보여요. (단원 문제와 연결되지 않은 영상)</div></div>
+    <button class="btn small" data-tvlib="1">+ 영상 넣기</button></div>
+    ${inner || '<p class="tiny" style="margin-top:6px">단원과 따로 넣은 영상이 없어요. 단원에 넣은 영상도 학생 영상 강의실에 함께 보여요.</p>'}</div>`;
+}
+function tvAddLib() {
+  const bg = modal(`<h3 style="margin-top:0">+ 영상 강의실에 넣기</h3><p class="tiny">${esc(TV.book)} · 이 학년 학생 모두에게 과별로 보여요</p>
+    <label class="tiny">유튜브 주소</label><input id="tvu" placeholder="https://youtu.be/…" style="width:100%">
+    <div class="row" style="gap:8px;margin-top:8px"><div style="flex:1"><label class="tiny">과 (숫자)</label><input id="tvls" placeholder="1" style="width:100%"></div><div style="flex:1"><label class="tiny">순서 (① = 1, ② = 2)</label><input id="tvno" placeholder="1" style="width:100%"></div></div>
+    <label class="tiny" style="display:block;margin-top:8px">영상 이름</label><input id="tvt" placeholder="예: 1과 문법① be동사" style="width:100%">
+    <label class="tiny" style="display:block;margin-top:8px">길이 (예: 13:29, 몰라도 돼요)</label><input id="tvl" placeholder="13:29" style="width:100%">
+    <label class="tiny" style="display:block;margin-top:8px">바로가기 (한 줄에 하나씩 "00:36 개념", 없어도 돼요)</label><textarea id="tvc" rows="4" style="width:100%"></textarea>
+    <div class="row between" style="margin-top:12px"><button class="btn small ghost" id="tvcx">취소</button><button class="btn small" id="tvok">넣기</button></div>`);
+  bg.querySelector('#tvcx').onclick = () => bg.remove();
+  bg.querySelector('#tvok').onclick = async () => {
+    const yt = tvYtId(bg.querySelector('#tvu').value), title = bg.querySelector('#tvt').value.trim();
+    const lesson = parseInt(bg.querySelector('#tvls').value) || null, no = parseInt(bg.querySelector('#tvno').value) || 1;
+    if (!yt) return toast('유튜브 주소를 확인해 주세요'); if (!title) return toast('영상 이름을 넣어 주세요'); if (!lesson) return toast('몇 과인지 숫자로 넣어 주세요');
+    const lt = bg.querySelector('#tvl').value.trim(); let len = null;
+    if (lt) { const p = lt.split(':').map(Number); len = p.length === 3 ? p[0] * 3600 + p[1] * 60 + p[2] : p.length === 2 ? p[0] * 60 + p[1] : null; }
+    const chapters = bg.querySelector('#tvc').value.split('\n').map(l => l.trim().match(/^(\d{1,2}:\d{2}(?::\d{2})?)\s+(.+)$/)).filter(Boolean).map(m => [m[1], m[2]]);
+    const { error } = await S.sb.from('unit_videos').insert({ unit_id: null, school_book: TV.book, lesson, no, yt_id: yt, title, len_sec: len, chapters, ord: no });
+    if (error) return toast('넣지 못했어요: ' + (/duplicate|unique/i.test(error.message) ? '이미 들어 있는 영상이에요' : error.message));
+    bg.remove(); toast('영상 강의실에 넣었어요 ♥'); tabVideos();
+  };
 }
 
 function tvPreview(id) {
@@ -103,7 +145,7 @@ function tvAdd(unitId) {
     const lt = bg.querySelector('#tvl').value.trim(); let len = null;
     if (lt) { const p = lt.split(':').map(Number); len = p.length === 3 ? p[0] * 3600 + p[1] * 60 + p[2] : p.length === 2 ? p[0] * 60 + p[1] : null; }
     const chapters = bg.querySelector('#tvc').value.split('\n').map(l => l.trim().match(/^(\d{1,2}:\d{2}(?::\d{2})?)\s+(.+)$/)).filter(Boolean).map(m => [m[1], m[2]]);
-    const { error } = await S.sb.from('unit_videos').upsert({ unit_id: unitId, yt_id: yt, title, len_sec: len, chapters, ord: n + 1 }, { onConflict: 'unit_id,yt_id' });
+    const { error } = await S.sb.from('unit_videos').upsert({ unit_id: unitId, yt_id: yt, title, len_sec: len, chapters, ord: n + 1, school_book: u.school_book, lesson: parseInt(u.lesson) || null, no: n + 1 }, { onConflict: 'unit_id,yt_id' });
     if (error) return toast('넣지 못했어요: ' + error.message);
     bg.remove(); toast('영상을 넣었어요 ♥'); tabVideos();
   };
