@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>성장 리포트 · 스텔라의 심쿵영어</title>
+<link rel="stylesheet" href="style.css?v=20261102v">
+<link rel="stylesheet" href="report.css?v=20261102v">
+<style>body{background:#f6f1e9;margin:0;padding:12px}.rpt-bar{max-width:210mm;margin:0 auto 10px;display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap}</style>
+</head>
+<body>
+<div class="rpt-bar noprint"><span class="muted" id="rmeta">리포트를 불러오는 중…</span><button class="btn" id="rprint" type="button" style="display:none">인쇄 / PDF로 저장</button></div>
+<div id="rbody"></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="config.js"></script>
+<script src="report-core.js?v=20261102v"></script>
+<script>
+(async function () {
+  var $ = function (s) { return document.querySelector(s); };
+  var bad = function (m) { $('#rmeta').textContent = ''; $('#rbody').innerHTML = '<div class="card" style="max-width:520px;margin:30px auto"><h2>' + m + '</h2><p class="muted">링크가 잘못됐거나, 사용 기간이 끝났거나, 선생님이 링크를 해제했을 수 있어요. 선생님께 새 링크를 요청해 주세요.</p></div>'; };
+  try {
+    var tok = new URLSearchParams(location.search).get('t') || '';
+    var c = window.APP_CONFIG || {};
+    if (!tok || !c.SUPABASE_URL || /YOUR-/.test(c.SUPABASE_URL)) return bad('리포트를 열 수 없어요');
+    var sb = window.supabase.createClient(c.SUPABASE_URL, c.SUPABASE_ANON_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
+    var r = await sb.rpc('get_shared_report', { p_token: tok });
+    if (r.error || !r.data || !r.data.snapshot) return bad('리포트를 열 수 없어요');
+    $('#rbody').innerHTML = RPT.render(r.data.snapshot);
+    var exp = new Date(r.data.expires_at).toLocaleDateString('ko-KR');
+    $('#rmeta').textContent = '이 링크는 ' + exp + '까지 열 수 있어요.';
+    document.title = r.data.snapshot.file || (r.data.snapshot.name + ' 학생 성장 리포트');
+    $('#rprint').style.display = ''; $('#rprint').onclick = function () { window.print(); };
+  } catch (e) { bad('리포트를 열 수 없어요'); }
+})();
+</script>
+</body>
+</html>
