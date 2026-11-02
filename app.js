@@ -284,7 +284,7 @@ function libView() {
   const body = books.map(b => {
     const bv = vs.filter(v => v.school_book === b);
     const ls = [...new Set(bv.map(v => v.lesson))];
-    return `<h2 style="margin:18px 0 8px">${esc(b)}</h2>` + ls.map(l => `<div class="card" style="padding:12px 14px;margin-bottom:8px"><b>${l === 99 ? '외부지문' : (l ? l + '과' : '기타')}</b><div>${bv.filter(v => v.lesson === l).map(v => `<button class="btn small ${v.no === 2 ? 'ghost' : ''}" style="margin:6px 6px 0 0" data-vid="${v.id}" data-back="lib">▶ ${esc(String(v.title).replace(/^\d+과 /, ''))} <span style="opacity:.75;font-weight:400">${fmtLen(v.len_sec)}</span></button>`).join('')}</div></div>`).join('');
+    return `<h2 style="margin:18px 0 8px">${esc(b)}</h2>` + ls.map(l => `<div class="card" style="padding:12px 14px;margin-bottom:8px"><b>${l === 99 ? '외부지문' : (l ? (/천일문/.test(b) ? 'Ch.' + l : l + '과') : '기타')}</b><div>${bv.filter(v => v.lesson === l).map(v => `<button class="btn small ${v.no === 2 ? 'ghost' : ''}" style="margin:6px 6px 0 0" data-vid="${v.id}" data-back="lib">▶ ${esc(String(v.title).replace(/^\d+과 /, ''))} <span style="opacity:.75;font-weight:400">${fmtLen(v.len_sec)}</span></button>`).join('')}</div></div>`).join('');
   }).join('');
   shell(`<p><a href="#" id="back">← 처음으로</a></p><h1>🎬 영상 강의실</h1><p class="muted">교과서 과별 문법 영상이에요. 개념을 영상으로 먼저 잡고, 배정된 단원 문제로 확인해요.</p>${body || '<div class="card">아직 내 학년 영상이 없어요.</div>'}`);
   $('#back').onclick = e => { e.preventDefault(); studentHome(); };
