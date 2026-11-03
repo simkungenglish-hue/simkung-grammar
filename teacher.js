@@ -515,7 +515,8 @@ function naesinMatrix(approvedN, mode) {
       <div><label>단계별 문항 수</label><input type="number" id="ap" min="1" max="20" value="5"></div>
       <div><label>통과 기준 (%)</label><input type="number" id="ac" min="1" max="100" value="80"></div>
       <div><label>다시 풀기 횟수</label><input type="number" id="ar" min="0" max="10" value="2"></div>
-      <div><label>내신대비 문항 수</label><input type="number" id="ae" min="1" max="20" value="8"></div></div></details>`;
+      <div><label>내신대비 문항 수</label><input type="number" id="ae" min="1" max="20" value="8"></div></div></details>
+    <div class="mxset" style="padding:10px 12px;border:1px solid #f0e2d8;border-radius:12px;margin-top:8px"><b>학습할 단계</b> <span class="tiny">아이 실력에 맞게 골라요 (개념만 · 서술형만 · 내신대비만 등)</span>${stagePickHtml('ast', null)}</div>`;
   document.querySelectorAll('[data-mode]').forEach(b => b.onclick = () => { try { localStorage.setItem('asgMode', b.dataset.mode); } catch (e) {} tabAssign(); });
   $('#mxreg').onclick = () => bookRegModal(tabAssign);
   $('#mxcv').onchange = async e => { const f = e.target.files[0]; if (!f || !M.book) return; try { await saveCover(M.book, f); toast('표지를 바꿨어요'); await loadTeacher(); tabAssign(); } catch (er) { toast(errText(er), 4000); } };
@@ -524,7 +525,9 @@ function naesinMatrix(approvedN, mode) {
   $('#mxclr').onclick = () => { M.sel.clear(); draw(); };
   $('#asave').onclick = async () => {
     const num = (id, d) => { const v = parseInt($(id).value, 10); return isNaN(v) ? d : v; };
-    const mk = u => ({ per_stage: num('#ap', 5), pass_pct: num('#ac', 80), max_retries: num('#ar', 2), stage_counts: { exam: /-hit$/.test((T.uById[u] || {}).code || '') ? 200 : num('#ae', 8) } });
+    const pickedSt = stagePicked('ast');
+    if (!pickedSt.length) return toast('학습할 단계를 하나 이상 골라 주세요');
+    const mk = u => { const sc = { exam: /-hit$/.test((T.uById[u] || {}).code || '') ? 200 : num('#ae', 8) }; STAGES.forEach(([k]) => { if (!pickedSt.includes(k)) sc[k] = 0; }); return { per_stage: num('#ap', 5), pass_pct: num('#ac', 80), max_retries: num('#ar', 2), stage_counts: sc }; };
     const rows = [...M.sel].filter(k => !had.has(k)).map(k => { const [s, u] = k.split('|'); return { student_id: s, unit_id: u, due_date: $('#ad').value || null, settings: mk(u) }; });
     if (!rows.length) return toast('이미 모두 배정되어 있어요');
     $('#asave').disabled = true;
