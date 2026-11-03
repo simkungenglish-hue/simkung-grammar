@@ -485,7 +485,8 @@ function naesinMatrix(approvedN, mode) {
     const body = NAE ? rows.map(([sl, nm]) => { const u = cur[sl];
       if (!u) return `<tr class="mxe"><th class="mxl">${nm}</th>${stu.map(() => '<td class="mxc na">준비 중</td>').join('')}</tr>`;
       const n = approvedN(u);
-      return `<tr><th class="mxl"><button type="button" class="mxh" data-ru="${u.id}" title="이 칸 전체 학생 선택">${nm}</button><span class="tiny">${n ? n + '문항' : '승인 필요'}</span></th>${stu.map(s => { const k = s.id + '|' + u.id;
+      const topic = String(u.title || '').includes(':') ? String(u.title).split(':').slice(1).join(':').trim() : String(u.title || '').replace(/^\d+과\s*/, '');
+      return `<tr><th class="mxl"><button type="button" class="mxh" data-ru="${u.id}" title="이 칸 전체 학생 선택">${nm}</button>${topic ? `<div class="mxtopic">${esc(topic)}</div>` : ''}<span class="tiny">${n ? n + '문항' : '승인 필요'}</span></th>${stu.map(s => { const k = s.id + '|' + u.id;
         return had.has(k) ? '<td class="mxc done">✓ 배정됨</td>' : `<td class="mxc ${M.sel.has(k) ? 'on' : ''} ${n ? '' : 'off'}" data-k="${k}">${M.sel.has(k) ? '✔ 선택' : ''}</td>`; }).join('')}</tr>`; }).join('') : gbody;
     const addUi = M.book ? `<div class="row" style="gap:6px;margin:8px 0;flex-wrap:wrap"><b class="tiny">이 교재로 공부하는 학생</b><select id="mxadd" style="max-width:220px"><option value="">+ 학생 넣기…</option>${others.map(s => `<option value="${s.id}">${esc(s.name)} (${esc(s.grade || '학년 미정')})</option>`).join('')}</select><button type="button" class="btn small" id="mxaddb">넣기</button></div>` : '';
     $('#mxbody').innerHTML = `${book$}${M.book ? `${NAE ? `<div class="mxbar">${les$}</div>` : ''}${addUi}

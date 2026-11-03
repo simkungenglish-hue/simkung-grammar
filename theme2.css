@@ -40,3 +40,5 @@ body .chunits .card { border-color: #e2e8f0; }
 .report.a4 h2, .report.a4 .runit { border-color: #4f46e5 !important; }
 .report.a4 .rhead, .report.a4 .rkpi { border-color: #4f46e5 !important; }
 .report.a4 .rk-v, .report.a4 .rbrand, .report.a4 .ru-h, .report.a4 .rcm-l { color: #4338ca !important; }
+
+.mxl .mxtopic{font-size:.86rem;font-weight:700;color:#4338ca;margin:2px 0 1px;line-height:1.35;white-space:normal}
