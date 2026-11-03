@@ -58,9 +58,7 @@ async function loadKeys() {
   if (error) throw error;
   T.keys = Object.fromEntries(data.map(k => [k.question_id, k]));
 }
-function tStageQs(asg, stage) {
-  return T.questions.filter(q => q.unit_id === asg.unit_id && q.stage === stage).sort((a, b) => a.ord - b.ord).slice(0, stageCount(asg, stage));
-}
+function tStageQs(asg, stage) { return stageQsCore(T.questions, asg, stage); }
 function tStage(asg, stage) {
   const cfg = cfgOf(asg), qs = tStageQs(asg, stage);
   let got = 0, max = 0, done = 0, waiting = 0, started = 0;
@@ -370,8 +368,8 @@ function tabAssign() {
     return `<details class="asg" open><summary><b>${esc(s ? s.name : '?')}</b> <span class="tiny">${esc(s && s.grade || '')} · 배정 ${list.length}개</span></summary>
       <div class="tablewrap"><table><tbody>${list.map(a => { const u = T.uById[a.unit_id], c = cfgOf(a);
         return `<tr><td>${esc(u ? unitLabel(u) : '?')}${roundBadge(a)}</td><td class="tiny" style="white-space:nowrap">마감 ${esc(a.due_date || '-')}</td>
-          <td class="tiny">단계 ${c.per_stage}문항 · 통과 ${c.pass_pct}% · 재시도 ${c.max_retries}회 · 내신대비 ${c.stage_counts.exam ?? c.per_stage}문항</td>
-          <td style="text-align:right;white-space:nowrap"><button class="btn small" data-round="${a.id}">다시 학습시키기 (${(a.current_round || 1) + 1}회차)</button> <button class="btn small ghost" data-del="${a.id}">삭제</button></td></tr>`; }).join('')}</tbody></table></div></details>`;
+          <td class="tiny">${stageLabel(a)}<br>단계 ${c.per_stage}문항 · 통과 ${c.pass_pct}% · 재시도 ${c.max_retries}회</td>
+          <td style="text-align:right;white-space:nowrap"><button class="btn small ghost" data-stg="${a.id}">단계 바꾸기</button> <button class="btn small" data-round="${a.id}">다시 학습시키기 (${(a.current_round || 1) + 1}회차)</button> <button class="btn small ghost" data-del="${a.id}">삭제</button></td></tr>`; }).join('')}</tbody></table></div></details>`;
   }).join('') || `<p class="muted">${MODE_NAME[mode]} 과제가 아직 없어요</p>`;
   // 학생: 학년별로 묶기
   const gs = new Map();
@@ -400,6 +398,7 @@ function tabAssign() {
       <div><label>통과 기준 (%)</label><input type="number" id="ac" min="1" max="100" value="80"></div>
       <div><label>다시 풀기 횟수</label><input type="number" id="ar" min="0" max="10" value="2"></div>
       <div><label>내신대비 문항 수</label><input type="number" id="ae" min="1" max="20" value="8"></div></div>
+      <div style="margin-top:10px"><label>학습할 단계 <span class="tiny">(아이 실력에 맞게 골라요)</span></label>${stagePickHtml('ast', null)}</div>
       <div class="sumbar"><span id="asum">학생과 단원을 골라 주세요</span><button class="btn" id="asave">배정하기</button></div>
       <p class="tiny">이미 배정된 조합을 다시 배정하면 마감일·설정이 새 값으로 바뀌고, 풀이 기록은 그대로 남아요. 공개 문항이 0개인 단원은 문항 관리에서 먼저 승인해야 학생에게 보여요.</p></div></div></div>
     <div class="card"><h3>${MODE_NAME[mode]} 배정 현황 <span class="tiny">(학생별${otherN ? ` · 다른 쪽 ${otherN}건은 위 탭에서 보여요` : ''})</span></h3>${statusHtml}</div>`;
@@ -433,7 +432,9 @@ function tabAssign() {
     const uids = [...document.querySelectorAll('[name=au]:checked')].map(x => x.value);
     if (!sids.length || !uids.length) return toast('학생과 단원을 하나 이상 골라 주세요');
     const num = (id, d) => { const v = parseInt($(id).value, 10); return isNaN(v) ? d : v; };
-    const mk = u => ({ per_stage: num('#ap', 5), pass_pct: num('#ac', 80), max_retries: num('#ar', 2), stage_counts: { exam: /-hit$/.test((T.uById[u] || {}).code || '') ? 200 : num('#ae', 8) } });
+    const pickedSt = stagePicked('ast');
+    if (!pickedSt.length) return toast('학습할 단계를 하나 이상 골라 주세요');
+    const mk = u => { const sc = { exam: /-hit$/.test((T.uById[u] || {}).code || '') ? 200 : num('#ae', 8) }; STAGES.forEach(([k]) => { if (!pickedSt.includes(k)) sc[k] = 0; }); return { per_stage: num('#ap', 5), pass_pct: num('#ac', 80), max_retries: num('#ar', 2), stage_counts: sc }; };
     const rows = []; let skipped = 0;
     for (const s of sids) for (const u of uids) { if (mode === 'naesin' && had.has(s + '|' + u)) { skipped++; continue; } rows.push({ student_id: s, unit_id: u, due_date: $('#ad').value || null, settings: mk(u) }); }
     if (!rows.length) return toast('이미 모두 배정되어 있어요');
@@ -441,15 +442,8 @@ function tabAssign() {
     if (error) return toast(errText(error), 4000);
     toast(`${rows.length}건 배정했어요${skipped ? ` (이미 배정된 ${skipped}건 제외)` : ''}`); await loadTeacher(); tabAssign();
   };
-  document.querySelectorAll('[data-round]').forEach(b => b.onclick = async () => {
-    const a = T.asg.find(x => x.id === b.dataset.round); if (!a) return;
-    const s = T.sById[a.student_id], u = T.uById[a.unit_id], nx = (a.current_round || 1) + 1;
-    if (!confirm(`${s ? s.name : ''} 학생의 "${u ? u.title : ''}" 단원을 ${nx}회차로 다시 학습시킬까요?\n\n· 지금까지의 풀이 기록은 ${nx - 1}회차까지 그대로 보존돼요.\n· 학생 화면은 처음 단계부터 새로 시작해요.\n· 회차는 제한 없이 계속 만들 수 있어요.`)) return;
-    b.disabled = true;
-    const { error } = await S.sb.rpc('start_new_round', { p_assignment: a.id });
-    if (error) { b.disabled = false; return toast(errText(error), 4000); }
-    toast(`${nx}회차를 시작했어요`); await loadTeacher(); tabAssign();
-  });
+  document.querySelectorAll('[data-round]').forEach(b => b.onclick = () => relearnModal(b.dataset.round));
+  document.querySelectorAll('[data-stg]').forEach(b => b.onclick = () => stageModal(b.dataset.stg));
   document.querySelectorAll('[data-del]').forEach(b => b.onclick = async () => {
     if (!confirm('이 배정을 삭제할까요?\n이 학생의 이 단원 풀이 기록도 함께 지워져요.')) return;
     if (!confirm('정말 삭제할까요? 되돌릴 수 없어요.')) return;

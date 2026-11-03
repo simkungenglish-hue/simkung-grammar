@@ -161,9 +161,13 @@ const AT = { acc: 0, last: 0, on: false, IDLE: 180000, bound: false,
   },
   stop() { this.tick(); return Math.round(this.acc / 1000); }
 };
-function stageQs(asg, stage) {
-  return ST.questions.filter(q => q.unit_id === asg.unit_id && q.stage === stage).sort((a, b) => a.ord - b.ord).slice(0, stageCount(asg, stage));
+function stageQsCore(questions, asg, stage) {
+  const s = asg.settings || {};
+  const qs = questions.filter(q => q.unit_id === asg.unit_id && q.stage === stage).sort((a, b) => a.ord - b.ord);
+  if (Array.isArray(s.focus_qids) && s.focus_round === (asg.current_round || 1)) { const f = new Set(s.focus_qids); return qs.filter(q => f.has(q.id)); }
+  return qs.slice(0, stageCount(asg, stage));
 }
+function stageQs(asg, stage) { return stageQsCore(ST.questions, asg, stage); }
 function lastAttempt(qid) {
   let best = null;
   for (const a of ST.attempts) if (a.question_id === qid && (!best || a.attempt_no > best.attempt_no)) best = a;
