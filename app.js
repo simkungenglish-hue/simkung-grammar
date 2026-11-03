@@ -258,10 +258,25 @@ const naesinGrammar = () => naesinKind('grammar');
 /* ---------- 영상 강의 (유튜브) ---------- */
 const fmtLen = s => { s = Math.round(s || 0); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
 const tsec = t => { const p = String(t).split(':').map(Number); return p.length === 3 ? p[0] * 3600 + p[1] * 60 + p[2] : p[0] * 60 + (p[1] || 0); };
+(function () { if (document.getElementById('vcard-css')) return; const st = document.createElement('style'); st.id = 'vcard-css'; st.textContent = `
+.vgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px;margin-top:10px}
+.vcard{display:flex;flex-direction:column;border:1px solid #f0e2d8;border-radius:14px;overflow:hidden;background:#fff;text-align:left;padding:0;cursor:pointer;transition:transform .15s, box-shadow .15s;font:inherit;color:inherit;width:100%}
+.vcard:hover{transform:translateY(-2px);box-shadow:0 8px 22px rgba(60,39,48,.12)}
+.vthumb{position:relative;display:block;width:100%;aspect-ratio:16/9;background:linear-gradient(135deg,#fff3dc,#ffe3e9);overflow:hidden;border:0;padding:0;cursor:pointer}
+.vthumb img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.vthumb .vfb{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:10px;text-align:center;font-weight:800;color:#3c2730;font-size:15px;line-height:1.3}
+.vthumb .vplay{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:46px;height:46px;border-radius:50%;background:rgba(0,0,0,.55);color:#fff;display:flex;align-items:center;justify-content:center;font-size:18px;opacity:.9}
+.vthumb .vlen{position:absolute;right:6px;bottom:6px;background:rgba(0,0,0,.78);color:#fff;font-size:12px;font-weight:700;padding:2px 6px;border-radius:5px}
+.vbody{padding:9px 11px 11px;display:flex;flex-direction:column;gap:6px}
+.vbody b{font-size:14px;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+@media (max-width:600px){.vgrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.vbody b{font-size:13px}.vthumb .vplay{width:38px;height:38px;font-size:15px}}
+`; document.head.appendChild(st); })();
+function vThumb(v) { return `<span class="vfb">${esc(v.title)}</span><img src="https://i.ytimg.com/vi/${esc(v.yt_id)}/mqdefault.jpg" alt="" loading="lazy" onload="if(this.naturalWidth<=120)this.remove()" onerror="this.remove()"><span class="vplay">▶</span>${v.len_sec ? `<span class="vlen">${fmtLen(v.len_sec)}</span>` : ''}`; }
+function vCard(v, back, label) { return `<button class="vcard" data-vid="${v.id}" data-back="${esc(back)}"><span class="vthumb">${vThumb(v)}</span><span class="vbody"><b>${esc(label || v.title)}</b></span></button>`; }
 function vidBox(unitId, back, compact) {
   const vs = (ST.videos || []).filter(v => v.unit_id === unitId);
   if (!vs.length) return '';
-  const btns = vs.map(v => `<button class="btn small" style="margin:6px 6px 0 0" data-vid="${v.id}" data-back="${esc(back)}">▶ ${esc(v.title)} <span style="opacity:.8;font-weight:400">${fmtLen(v.len_sec)}</span></button>`).join('');
+  const btns = `<div class="vgrid">${vs.map(v => vCard(v, back)).join('')}</div>`;
   return compact
     ? `<div class="card soft" style="margin:8px 0 0"><div class="tiny"><b>🎬 영상 강의</b> — 스텔라쌤 영상으로 먼저 개념을 잡아요</div>${btns}</div>`
     : `<div class="card soft"><h3>🎬 영상 강의</h3><p class="muted">스텔라쌤 영상으로 개념을 먼저 잡고, 문제로 확인해요.</p>${btns}</div>`;
@@ -284,7 +299,7 @@ function libView() {
   const body = books.map(b => {
     const bv = vs.filter(v => v.school_book === b);
     const ls = [...new Set(bv.map(v => v.lesson))];
-    return `<h2 style="margin:18px 0 8px">${esc(b)}</h2>` + ls.map(l => `<div class="card" style="padding:12px 14px;margin-bottom:8px"><b>${l === 99 ? '외부지문' : (l ? (/천일문/.test(b) ? 'Ch.' + l : l + '과') : '기타')}</b><div>${bv.filter(v => v.lesson === l).map(v => `<button class="btn small ${v.no === 2 ? 'ghost' : ''}" style="margin:6px 6px 0 0" data-vid="${v.id}" data-back="lib">▶ ${esc(String(v.title).replace(/^\d+과 /, ''))} <span style="opacity:.75;font-weight:400">${fmtLen(v.len_sec)}</span></button>`).join('')}</div></div>`).join('');
+    return `<h2 style="margin:18px 0 8px">${esc(b)}</h2>` + ls.map(l => `<div class="card" style="padding:12px 14px;margin-bottom:8px"><b>${l === 99 ? '외부지문' : (l ? (/천일문/.test(b) ? 'Ch.' + l : l + '과') : '기타')}</b><div class="vgrid">${bv.filter(v => v.lesson === l).map(v => vCard(v, 'lib', String(v.title).replace(/^\d+과 /, ''))).join('')}</div></div>`).join('');
   }).join('');
   shell(`<p><a href="#" id="back">← 처음으로</a></p><h1>🎬 영상 강의실</h1><p class="muted">교과서 과별 문법 영상이에요. 개념을 영상으로 먼저 잡고, 배정된 단원 문제로 확인해요.</p>${body || '<div class="card">아직 내 학년 영상이 없어요.</div>'}`);
   $('#back').onclick = e => { e.preventDefault(); studentHome(); };

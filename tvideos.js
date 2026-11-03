@@ -41,15 +41,7 @@ async function tabVideos() {
   const total = TV.vids.length;
   const rows = units.map(u => {
     const vs = TV.vids.filter(v => v.unit_id === u.id).sort((a, b) => a.ord - b.ord);
-    const chips = vs.map(v => {
-      const st = tvStats(v.yt_id);
-      return `<div class="row" style="gap:8px;align-items:center;flex-wrap:wrap;margin-top:6px;padding:8px 10px;border:1px solid #f0e2d8;border-radius:10px;background:#fffdfb">
-        <b style="font-size:14px">🎬 ${esc(v.title)}</b><span class="tiny">${tvLen(v.len_sec)}</span>
-        ${st ? `<span class="badge ${st.n ? 'ok' : 'gray'}">본 학생 ${st.n}명 · 완료 ${st.done}명</span>` : ''}
-        <span style="margin-left:auto"></span>
-        <button class="btn small ghost" data-tvp="${v.id}">미리보기</button>
-        <button class="btn small ghost" data-tvd="${v.id}">빼기</button></div>`;
-    }).join('');
+    const chips = vs.length ? `<div class="vgrid">${vs.map(tvChip).join('')}</div>` : '';
     return `<div class="card" style="padding:14px 16px;margin-bottom:10px">
       <div class="row between" style="align-items:center;gap:8px"><div><span class="badge gray">${esc(u.lesson || '')}</span> <b>${esc(u.title)}</b></div>
       <button class="btn small" data-tva="${u.id}">+ 영상 넣기</button></div>
@@ -69,17 +61,15 @@ async function tabVideos() {
 
 function tvChip(v) {
   const st = tvStats(v.yt_id);
-  return `<div class="row" style="gap:8px;align-items:center;flex-wrap:wrap;margin-top:6px;padding:8px 10px;border:1px solid #f0e2d8;border-radius:10px;background:#fffdfb">
-    <b style="font-size:14px">🎬 ${esc(v.title)}</b><span class="tiny">${tvLen(v.len_sec)}</span>
-    ${st ? `<span class="badge ${st.n ? 'ok' : 'gray'}">본 학생 ${st.n}명 · 완료 ${st.done}명</span>` : ''}
-    <span style="margin-left:auto"></span>
-    <button class="btn small ghost" data-tvp="${v.id}">미리보기</button>
-    <button class="btn small ghost" data-tvd="${v.id}">빼기</button></div>`;
+  return `<div class="vcard" style="cursor:default"><button class="vthumb" data-tvp="${v.id}" title="미리보기">${typeof vThumb === 'function' ? vThumb(v) : ''}</button>
+    <div class="vbody"><b>${esc(v.title)}</b>
+    ${st ? `<span class="badge ${st.n ? 'ok' : 'gray'}" style="align-self:flex-start">본 학생 ${st.n}명 · 완료 ${st.done}명</span>` : ''}
+    <div class="row" style="gap:6px"><button class="btn small ghost" data-tvp="${v.id}">미리보기</button><button class="btn small ghost" data-tvd="${v.id}">빼기</button></div></div></div>`;
 }
 function tvLibSection() {
   const lv = TV.vids.filter(v => !v.unit_id && v.school_book === TV.book).sort((a, b) => (a.lesson || 0) - (b.lesson || 0) || (a.no || 0) - (b.no || 0));
   const ls = [...new Set(lv.map(v => v.lesson))];
-  const inner = ls.map(l => `<div style="margin-top:10px"><span class="badge gray">${l === 99 ? '외부지문' : (l ? (/천일문/.test(TV.book) ? 'Ch.' + l : l + '과') : '기타')}</span>${lv.filter(v => v.lesson === l).map(tvChip).join('')}</div>`).join('');
+  const inner = ls.map(l => `<div style="margin-top:10px"><span class="badge gray">${l === 99 ? '외부지문' : (l ? (/천일문/.test(TV.book) ? 'Ch.' + l : l + '과') : '기타')}</span><div class="vgrid">${lv.filter(v => v.lesson === l).map(tvChip).join('')}</div></div>`).join('');
   return `<div class="card" style="padding:14px 16px;margin-bottom:14px;border:2px solid #ffd2db">
     <div class="row between" style="align-items:center;gap:8px"><div><b>📚 ${esc(TV.book)} 영상 강의실</b><div class="tiny">이 교재·학년 학생 화면의 「🎬 영상 강의실」에 과별로 보여요. (단원 문제와 연결되지 않은 영상)</div></div>
     <button class="btn small" data-tvlib="1">+ 영상 넣기</button></div>
