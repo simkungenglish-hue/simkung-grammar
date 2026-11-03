@@ -69,7 +69,7 @@ function shell(inner, extraTop = '') {
       <button class="btn ghost small" id="btnOut">로그아웃</button></div>
   </header>
   <div class="wrap" id="main">${inner}</div>`;
-  $('#btnOut').onclick = async () => { await S.sb.auth.signOut(); location.reload(); };
+  $('#btnOut').onclick = async () => { if (!confirm('로그아웃할까요?\n(다음에 들어올 때 아이디·비밀번호를 다시 넣어야 해요)')) return; await S.sb.auth.signOut({ scope: 'local' }); location.reload(); };
   $('#btnPw').onclick = changePw;
 }
 async function changePw() {
@@ -88,7 +88,9 @@ async function boot() {
       <p>설치 안내서의 3단계(Supabase 주소와 키 넣기)를 먼저 해 주세요. <code>config.js</code> 파일에 값을 넣으면 이 화면 대신 로그인 화면이 나와요.</p></div></div>`;
     return;
   }
-  S.sb = window.supabase.createClient(c.SUPABASE_URL, c.SUPABASE_ANON_KEY);
+  S.sb = window.supabase.createClient(c.SUPABASE_URL, c.SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false } });
+  try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) { /* 저장 공간 유지 요청 실패해도 계속 */ }
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) { try { S.sb.auth.startAutoRefresh(); } catch (e) {} } else { try { S.sb.auth.stopAutoRefresh(); } catch (e) {} } });
   const { data } = await S.sb.auth.getSession();
   if (data && data.session) return afterLogin(data.session.user);
   loginView();
