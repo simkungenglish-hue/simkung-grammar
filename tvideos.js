@@ -39,7 +39,30 @@ async function tabVideos() {
   const units = T.units.filter(u => u.school_book === TV.book)
     .sort((a, b) => (parseInt(a.lesson) || 999) - (parseInt(b.lesson) || 999) || String(a.code).localeCompare(String(b.code)));
   const total = TV.vids.length;
-  const rows = units.map(u => {
+  const tvLen2 = s => tvLen(s);
+  const isCh = /천일문/.test(TV.book);
+  const chapterRows = () => {
+    const vs = TV.vids.filter(v => v.school_book === TV.book && v.unit_id);
+    const byYt = new Map(); vs.forEach(v => { if (!byYt.has(v.yt_id)) byYt.set(v.yt_id, []); byYt.get(v.yt_id).push(v); });
+    const groups = [...byYt.values()].map(arr => ({ v: arr[0], arr })).sort((a, b) => (a.v.lesson || 0) - (b.v.lesson || 0) || (a.v.no || 0) - (b.v.no || 0));
+    const used = new Set();
+    const html = groups.map(g => {
+      const us = g.arr.map(v => ({ v, u: T.units.find(x => x.id === v.unit_id) })).filter(x => x.u).sort((a, b) => String(a.u.lesson).localeCompare(String(b.u.lesson), undefined, { numeric: true }));
+      us.forEach(x => used.add(x.u.id));
+      const urows = us.map(({ v, u }) => `<div class="row between" style="align-items:center;gap:8px;padding:8px 10px;border:1px solid #f0e2d8;border-radius:10px;margin-top:6px;background:#fff">
+        <div><span class="badge gray">${esc(u.lesson || '')}</span> <b>${esc(u.title)}</b></div>
+        <div class="row" style="gap:6px">${v.start_sec != null ? `<button class="btn small ghost" data-tvp="${v.id}" data-at="${v.start_sec}">▶ 이 부분 (${tvLen2(v.start_sec)})</button>` : ''}${v.start_sec == null && v.serse_sec != null ? `<button class="btn small ghost" data-tvp="${v.id}" data-at="${v.serse_sec}">✍️ 서술형 (${tvLen2(v.serse_sec)})</button>` : ''}</div></div>`).join('');
+      return `<div class="card" style="padding:14px 16px;margin-bottom:12px;border:2px solid #ffe08a;background:linear-gradient(180deg,#fffbea,#fff)">
+        <h3 style="margin:0 0 8px">${esc(g.v.title)}</h3>
+        <div class="vgrid" style="grid-template-columns:minmax(0,360px)">${tvChip(g.v)}</div>
+        ${g.v.serse_sec != null ? `<button class="btn small" style="margin-top:8px" data-tvp="${g.v.id}" data-at="${g.v.serse_sec}">✍️ 서술형 풀이 보기 (${tvLen2(g.v.serse_sec)})</button>` : ''}
+        <div style="margin-top:6px">${urows}</div></div>`;
+    }).join('');
+    const restUnits = units.filter(u => !used.has(u.id));
+    return { html, restUnits };
+  };
+  const chap = isCh ? chapterRows() : null;
+  const rows = (chap ? chap.html : '') + (chap ? chap.restUnits : units).map(u => {
     const vs = TV.vids.filter(v => v.unit_id === u.id).sort((a, b) => a.ord - b.ord);
     const chips = vs.length ? `<div class="vgrid">${vs.map(tvChip).join('')}</div>` : '';
     return `<div class="card" style="padding:14px 16px;margin-bottom:10px">
@@ -52,7 +75,7 @@ async function tabVideos() {
     <div class="row" style="gap:8px;flex-wrap:wrap;margin:12px 0">${books.map(b => `<button class="btn small ${b === TV.book ? '' : 'ghost'}" data-tvb="${esc(b)}">${esc(b)}${vidCount(b) ? ` · 🎬${vidCount(b)}` : ''}</button>`).join('')}</div>
     ${tvLibSection()}${rows || ''}`;
   tb.querySelectorAll('[data-tvb]').forEach(b => b.onclick = () => { TV.book = b.dataset.tvb; tabVideos(); });
-  tb.querySelectorAll('[data-tvp]').forEach(b => b.onclick = () => tvPreview(b.dataset.tvp));
+  tb.querySelectorAll('[data-tvp]').forEach(b => b.onclick = () => tvPreview(b.dataset.tvp, b.dataset.at != null ? +b.dataset.at : null));
   tb.querySelectorAll('[data-tvd]').forEach(b => b.onclick = () => tvDelete(b.dataset.tvd));
   tb.querySelectorAll('[data-tva]').forEach(b => b.onclick = () => tvAdd(b.dataset.tva));
   tb.querySelectorAll('[data-tvlib]').forEach(b => b.onclick = () => tvAddLib());
@@ -97,13 +120,13 @@ function tvAddLib() {
   };
 }
 
-function tvPreview(id) {
+function tvPreview(id, at) {
   const v = TV.vids.find(x => x.id === id); if (!v) return;
   const st = tvStats(v.yt_id);
   const who = st && st.rows.length ? st.rows.map(r => { const s = T.students.find(x => x.id === r.student_id); return `<span class="badge ${r.completed ? 'ok' : ''}" style="margin:2px">${esc(s ? s.name : '?')} ${r.completed ? '✓' : Math.round(r.watched_sec / 60) + '분'}</span>`; }).join('') : '<span class="tiny">아직 본 학생이 없어요.</span>';
   const ch = (v.chapters || []).map(([t, x]) => `<div class="tiny"><b>${esc(t)}</b> ${esc(x)}</div>`).join('');
   const bg = modal(`<h3 style="margin-top:0">🎬 ${esc(v.title)}</h3>
-    <div style="position:relative;width:100%;aspect-ratio:16/9;border-radius:10px;overflow:hidden;background:#000"><iframe src="https://www.youtube.com/embed/${esc(v.yt_id)}?rel=0" style="position:absolute;inset:0;width:100%;height:100%;border:0" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe></div>
+    <div style="position:relative;width:100%;aspect-ratio:16/9;border-radius:10px;overflow:hidden;background:#000"><iframe src="https://www.youtube.com/embed/${esc(v.yt_id)}?rel=0${at ? `&start=${Math.floor(at)}&autoplay=1` : ''}" style="position:absolute;inset:0;width:100%;height:100%;border:0" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe></div>
     <p style="margin:10px 0 4px"><b>본 학생</b></p><div>${who}</div>
     ${ch ? `<p style="margin:10px 0 4px"><b>바로가기</b></p>${ch}` : ''}
     <div class="row between" style="margin-top:12px"><a class="btn small ghost" href="https://www.youtube.com/watch?v=${esc(v.yt_id)}" target="_blank" rel="noopener">유튜브에서 열기</a><button class="btn small" id="tvx">닫기</button></div>`);

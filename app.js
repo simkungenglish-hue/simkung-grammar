@@ -145,7 +145,7 @@ async function loadStudent() {
   ST.concepts = c.data || []; ST.questions = q.data || [];
   ST.allAttempts = t.data || [];
   try { const dk = await S.sb.from('lesson_decks').select('id,deck_key,unit_id,ord,title,paths').order('ord'); ST.decks = dk.error ? [] : (dk.data || []); } catch (e) { ST.decks = []; }
-  try { const uv = await S.sb.from('unit_videos').select('id,unit_id,yt_id,title,len_sec,chapters,ord,school_book,lesson,no').order('ord'); ST.videos = uv.error ? [] : (uv.data || []); } catch (e) { ST.videos = []; }
+  try { const uv = await S.sb.from('unit_videos').select('id,unit_id,yt_id,title,len_sec,chapters,ord,school_book,lesson,no,start_sec,serse_sec').order('ord'); ST.videos = uv.error ? [] : (uv.data || []); } catch (e) { ST.videos = []; }
   try { const lv = await S.sb.from('lec_videos').select('id,yt_id'); ST.lecIds = Object.fromEntries(((lv && lv.data) || []).map(x => [x.yt_id, x.id])); } catch (e) { ST.lecIds = {}; }
   ST.attempts = ST.allAttempts.filter(x => (x.round || 1) === (cr[x.assignment_id] || 1));
 }
@@ -224,7 +224,7 @@ function bindHome() {
 function studentHome() {
   const nae = ST.asg.filter(isNaesin), gen = ST.asg.filter(a => !isNaesin(a));
   const hub = nae.length ? `<div class="card soft"><div class="row between"><div><h2 style="margin:0">📘 중등 내신</h2><div class="muted">교과서로 시험 준비를 해요.</div></div><button class="btn" id="nh">열기</button></div></div>` : '';
-  shell(`<h1>오늘의 공부</h1>${hub}${libCard()}${gen.map(asgCard).join('') || (nae.length ? '' : '<div class="card">아직 배정된 단원이 없어요. 원장님께 물어보세요.</div>')}
+  shell(`<h1>오늘의 공부</h1>${hub}${libCard()}${genGrouped(gen) || (nae.length ? '' : '<div class="card">아직 배정된 단원이 없어요. 원장님께 물어보세요.</div>')}
     <div class="card"><div class="row between"><div><h3 style="margin:0">오답노트</h3><div class="muted">틀린 문제를 다시 확인해요.</div></div><button class="btn ghost" id="wr">열기</button></div></div>`);
   bindHome();
   if ($('#nh')) $('#nh').onclick = () => naesinHub();
@@ -271,14 +271,36 @@ const tsec = t => { const p = String(t).split(':').map(Number); return p.length 
 .vthumb .vlen{position:absolute;right:6px;bottom:6px;background:rgba(0,0,0,.78);color:#fff;font-size:12px;font-weight:700;padding:2px 6px;border-radius:5px}
 .vbody{padding:9px 11px 11px;display:flex;flex-direction:column;gap:6px}
 .vbody b{font-size:14px;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.chgroup{border:2px solid #ffe08a;background:linear-gradient(180deg,#fffbea,#fff)}
+.chgroup .chvid .vcard{max-width:440px}
+.chgroup .chunits .card{margin:10px 0 0;box-shadow:none;border:1px solid #f0e2d8;background:#fff}
 @media (max-width:600px){.vgrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.vbody b{font-size:13px}.vthumb .vplay{width:38px;height:38px;font-size:15px}}
 `; document.head.appendChild(st); })();
 function vThumb(v) { return `<span class="vfb">${esc(v.title)}</span><img src="https://i.ytimg.com/vi/${esc(v.yt_id)}/mqdefault.jpg" alt="" loading="lazy" onload="if(this.naturalWidth<=120)this.remove()" onerror="this.remove()"><span class="vplay">▶</span>${v.len_sec ? `<span class="vlen">${fmtLen(v.len_sec)}</span>` : ''}`; }
 function vCard(v, back, label) { return `<button class="vcard" data-vid="${v.id}" data-back="${esc(back)}"><span class="vthumb">${vThumb(v)}</span><span class="vbody"><b>${esc(label || v.title)}</b></span></button>`; }
+function genGrouped(list) {
+  const vids = ST.videos || [];
+  const groups = new Map(), rest = [];
+  list.forEach(a => { const v = vids.find(x => x.unit_id === a.unit_id); if (!v) { rest.push(a); return; } const k = v.school_book + '|' + v.yt_id; if (!groups.has(k)) groups.set(k, { v, items: [] }); groups.get(k).items.push({ a, v }); });
+  const gs = [...groups.values()].sort((x, y) => String(x.v.school_book).localeCompare(String(y.v.school_book), 'ko') || (x.v.lesson || 0) - (y.v.lesson || 0) || (x.v.no || 0) - (y.v.no || 0));
+  const html = gs.map(g => {
+    const items = g.items.sort((x, y) => String(x.a.units.lesson || '').localeCompare(String(y.a.units.lesson || ''), undefined, { numeric: true }));
+    const unitHtml = items.map(({ a, v }) => {
+      const btns = (v.start_sec != null ? `<button class="btn small ghost" data-vid="${v.id}" data-back="home" data-at="${v.start_sec}">▶ 영상에서 이 부분 보기 (${fmtLen(v.start_sec)})</button>` : '')
+        + (v.start_sec == null && v.serse_sec != null ? `<button class="btn small ghost" data-vid="${v.id}" data-back="home" data-at="${v.serse_sec}">✍️ 영상에서 서술형 풀이 보기 (${fmtLen(v.serse_sec)})</button>` : '');
+      return asgCard(a).replace(/<\/div>$/, '') + (btns ? `<div class="row" style="gap:6px;margin-top:8px;flex-wrap:wrap">${btns}</div>` : '') + '</div>';
+    }).join('');
+    const serse = g.v.serse_sec != null && items.some(x => x.v.start_sec != null) ? `<div style="margin-top:12px"><button class="btn small" data-vid="${g.v.id}" data-back="home" data-at="${g.v.serse_sec}">✍️ 서술형 풀이 보기 (${fmtLen(g.v.serse_sec)})</button></div>` : '';
+    return `<div class="card chgroup"><div class="tiny" style="font-weight:700;color:#b26a00">${esc(g.v.school_book)}</div><h2 style="margin:2px 0 10px">${esc(g.v.title)}</h2>
+      <div class="chvid">${vCard(g.v, 'home', '🎬 영상 먼저 보기 · ' + g.v.title)}</div>
+      <div class="chunits">${unitHtml}</div>${serse}</div>`;
+  }).join('');
+  return html + rest.map(asgCard).join('');
+}
 function vidBox(unitId, back, compact) {
   const vs = (ST.videos || []).filter(v => v.unit_id === unitId);
   if (!vs.length) return '';
-  const btns = `<div class="vgrid">${vs.map(v => vCard(v, back)).join('')}</div>`;
+  const btns = `<div class="vgrid">${vs.map(v => vCard(v, back)).join('')}</div>` + vs.map(v => (v.start_sec != null ? `<button class="btn small ghost" style="margin:8px 6px 0 0" data-vid="${v.id}" data-back="${esc(back)}" data-at="${v.start_sec}">▶ 이 단원 부분부터 보기 (${fmtLen(v.start_sec)})</button>` : '') + (v.serse_sec != null ? `<button class="btn small ghost" style="margin:8px 6px 0 0" data-vid="${v.id}" data-back="${esc(back)}" data-at="${v.serse_sec}">✍️ 서술형 풀이 보기 (${fmtLen(v.serse_sec)})</button>` : '')).join('');
   return compact
     ? `<div class="card soft" style="margin:8px 0 0"><div class="tiny"><b>🎬 영상 강의</b> — 스텔라쌤 영상으로 먼저 개념을 잡아요</div>${btns}</div>`
     : `<div class="card soft"><h3>🎬 영상 강의</h3><p class="muted">스텔라쌤 영상으로 개념을 먼저 잡고, 문제로 확인해요.</p>${btns}</div>`;
@@ -307,7 +329,7 @@ function libView() {
   $('#back').onclick = e => { e.preventDefault(); studentHome(); };
   bindVid();
 }
-function bindVid() { document.querySelectorAll('[data-vid]').forEach(b => b.onclick = () => videoView(b.dataset.vid, b.dataset.back || 'home')); }
+function bindVid() { document.querySelectorAll('[data-vid]').forEach(b => b.onclick = e => { e.stopPropagation(); videoView(b.dataset.vid, b.dataset.back || 'home', b.dataset.at != null ? +b.dataset.at : null); }); }
 const VID = { player: null, timer: null, acc: 0, last: null, lecId: null, viewSent: false };
 function loadYT() {
   if (window.YT && window.YT.Player) return Promise.resolve();
@@ -321,7 +343,7 @@ async function vidFlush(done) {
   try { await S.sb.rpc('lec_log', { p_video: VID.lecId, p_add: add, p_pos: pos, p_done: null, p_memo: null, p_view: !VID.viewSent }); VID.viewSent = true; } catch (e) { /* 기록은 실패해도 영상은 계속 봐요 */ }
 }
 function vidStop() { clearInterval(VID.timer); VID.timer = null; vidFlush(); if (VID.player && VID.player.destroy) { try { VID.player.destroy(); } catch (e) {} } VID.player = null; }
-async function videoView(vid, back) {
+async function videoView(vid, back, at) {
   const v = (ST.videos || []).find(x => x.id === vid); if (!v) return studentHome();
   vidStop();
   VID.acc = 0; VID.last = null; VID.viewSent = false; VID.lecId = (ST.lecIds || {})[v.yt_id] || null;
@@ -336,7 +358,7 @@ async function videoView(vid, back) {
   $('#back').onclick = e => { e.preventDefault(); home(); };
   await loadYT();
   if (!document.getElementById('ytbox')) return;
-  VID.player = new YT.Player('ytbox', { width: '100%', height: '100%', videoId: v.yt_id, playerVars: { rel: 0, playsinline: 1, modestbranding: 1 },
+  VID.player = new YT.Player('ytbox', { width: '100%', height: '100%', videoId: v.yt_id, playerVars: Object.assign({ rel: 0, playsinline: 1, modestbranding: 1 }, at ? { start: Math.floor(at), autoplay: 1 } : {}),
     events: { onStateChange: e => { if (e.data === 2 || e.data === 0) vidFlush(e.data === 0); } } });
   document.querySelectorAll('[data-sk]').forEach(b => b.onclick = () => { if (VID.player && VID.player.seekTo) { VID.player.seekTo(+b.dataset.sk, true); VID.player.playVideo(); VID.last = +b.dataset.sk; window.scrollTo({ top: 0, behavior: 'smooth' }); } });
   VID.timer = setInterval(() => {
