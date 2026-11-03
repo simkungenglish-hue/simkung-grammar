@@ -268,14 +268,14 @@ const tsec = t => { const p = String(t).split(':').map(Number); return p.length 
 .vgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px;margin-top:10px}
 .vcard{display:flex;flex-direction:column;border:1px solid #f0e2d8;border-radius:14px;overflow:hidden;background:#fff;text-align:left;padding:0;cursor:pointer;transition:transform .15s, box-shadow .15s;font:inherit;color:inherit;width:100%}
 .vcard:hover{transform:translateY(-2px);box-shadow:0 8px 22px rgba(60,39,48,.12)}
-.vthumb{position:relative;display:block;width:100%;aspect-ratio:16/9;background:linear-gradient(135deg,#fff3dc,#ffe3e9);overflow:hidden;border:0;padding:0;cursor:pointer}
+.vthumb{position:relative;display:block;width:100%;aspect-ratio:16/9;background:linear-gradient(135deg,#e0e7ff,#dbeafe);overflow:hidden;border:0;padding:0;cursor:pointer}
 .vthumb img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .vthumb .vfb{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:10px;text-align:center;font-weight:800;color:#3c2730;font-size:15px;line-height:1.3}
 .vthumb .vplay{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:46px;height:46px;border-radius:50%;background:rgba(0,0,0,.55);color:#fff;display:flex;align-items:center;justify-content:center;font-size:18px;opacity:.9}
 .vthumb .vlen{position:absolute;right:6px;bottom:6px;background:rgba(0,0,0,.78);color:#fff;font-size:12px;font-weight:700;padding:2px 6px;border-radius:5px}
 .vbody{padding:9px 11px 11px;display:flex;flex-direction:column;gap:6px}
 .vbody b{font-size:14px;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-.chgroup{border:2px solid #ffe08a;background:linear-gradient(180deg,#fffbea,#fff)}
+.chgroup{border:2px solid #c7d2fe;background:linear-gradient(180deg,#f5f7ff,#fff)}
 .chgroup .chvid .vcard{max-width:440px}
 .chgroup .chunits .card{margin:10px 0 0;box-shadow:none;border:1px solid #f0e2d8;background:#fff}
 @media (max-width:600px){.vgrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.vbody b{font-size:13px}.vthumb .vplay{width:38px;height:38px;font-size:15px}}
@@ -295,7 +295,7 @@ function genGrouped(list) {
       return asgCard(a).replace(/<\/div>$/, '') + (btns ? `<div class="row" style="gap:6px;margin-top:8px;flex-wrap:wrap">${btns}</div>` : '') + '</div>';
     }).join('');
     const serse = g.v.serse_sec != null && items.some(x => x.v.start_sec != null) ? `<div style="margin-top:12px"><button class="btn small" data-vid="${g.v.id}" data-back="home" data-at="${g.v.serse_sec}">✍️ 서술형 풀이 보기 (${fmtLen(g.v.serse_sec)})</button></div>` : '';
-    return `<div class="card chgroup"><div class="tiny" style="font-weight:700;color:#b26a00">${esc(g.v.school_book)}</div><h2 style="margin:2px 0 10px">${esc(g.v.title)}</h2>
+    return `<div class="card chgroup"><div class="tiny" style="font-weight:700;color:#4338ca">${esc(g.v.school_book)}</div><h2 style="margin:2px 0 10px">${esc(g.v.title)}</h2>
       <div class="chvid">${vCard(g.v, 'home', '🎬 영상 먼저 보기 · ' + g.v.title)}</div>
       <div class="chunits">${unitHtml}</div>${serse}</div>`;
   }).join('');

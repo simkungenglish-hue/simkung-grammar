@@ -52,7 +52,7 @@ async function tabVideos() {
       const urows = us.map(({ v, u }) => `<div class="row between" style="align-items:center;gap:8px;padding:8px 10px;border:1px solid #f0e2d8;border-radius:10px;margin-top:6px;background:#fff">
         <div><span class="badge gray">${esc(u.lesson || '')}</span> <b>${esc(u.title)}</b></div>
         <div class="row" style="gap:6px">${v.start_sec != null ? `<button class="btn small ghost" data-tvp="${v.id}" data-at="${v.start_sec}">▶ 이 부분 (${tvLen2(v.start_sec)})</button>` : ''}${v.start_sec == null && v.serse_sec != null ? `<button class="btn small ghost" data-tvp="${v.id}" data-at="${v.serse_sec}">✍️ 서술형 (${tvLen2(v.serse_sec)})</button>` : ''}</div></div>`).join('');
-      return `<div class="card" style="padding:14px 16px;margin-bottom:12px;border:2px solid #ffe08a;background:linear-gradient(180deg,#fffbea,#fff)">
+      return `<div class="card" style="padding:14px 16px;margin-bottom:12px;border:2px solid #c7d2fe;background:linear-gradient(180deg,#f5f7ff,#fff)">
         <h3 style="margin:0 0 8px">${esc(g.v.title)}</h3>
         <div class="vgrid" style="grid-template-columns:minmax(0,360px)">${tvChip(g.v)}</div>
         ${g.v.serse_sec != null ? `<button class="btn small" style="margin-top:8px" data-tvp="${g.v.id}" data-at="${g.v.serse_sec}">✍️ 서술형 풀이 보기 (${tvLen2(g.v.serse_sec)})</button>` : ''}
@@ -93,7 +93,7 @@ function tvLibSection() {
   const lv = TV.vids.filter(v => !v.unit_id && v.school_book === TV.book).sort((a, b) => (a.lesson || 0) - (b.lesson || 0) || (a.no || 0) - (b.no || 0));
   const ls = [...new Set(lv.map(v => v.lesson))];
   const inner = ls.map(l => `<div style="margin-top:10px"><span class="badge gray">${l === 99 ? '외부지문' : (l ? (/천일문/.test(TV.book) ? 'Ch.' + l : l + '과') : '기타')}</span><div class="vgrid">${lv.filter(v => v.lesson === l).map(tvChip).join('')}</div></div>`).join('');
-  return `<div class="card" style="padding:14px 16px;margin-bottom:14px;border:2px solid #ffd2db">
+  return `<div class="card" style="padding:14px 16px;margin-bottom:14px;border:2px solid #c7d2fe">
     <div class="row between" style="align-items:center;gap:8px"><div><b>📚 ${esc(TV.book)} 영상 강의실</b><div class="tiny">이 교재·학년 학생 화면의 「🎬 영상 강의실」에 과별로 보여요. (단원 문제와 연결되지 않은 영상)</div></div>
     <button class="btn small" data-tvlib="1">+ 영상 넣기</button></div>
     ${inner || '<p class="tiny" style="margin-top:6px">단원과 따로 넣은 영상이 없어요. 단원에 넣은 영상도 학생 영상 강의실에 함께 보여요.</p>'}</div>`;

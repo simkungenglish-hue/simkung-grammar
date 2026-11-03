@@ -15,7 +15,7 @@ document.addEventListener('click', e => {
 function stagesOf(a) { const c = cfgOf(a); return STAGES.map(([k]) => k).filter(k => (c.stage_counts[k] ?? c.per_stage) > 0); }
 function stageLabel(a) {
   const s = a.settings || {};
-  if (Array.isArray(s.focus_qids) && s.focus_round === (a.current_round || 1)) return `<b style="color:#c2410c">틀린 문제만 재학습 (${s.focus_qids.length}문항)</b>`;
+  if (Array.isArray(s.focus_qids) && s.focus_round === (a.current_round || 1)) return `<b style="color:#4338ca">틀린 문제만 재학습 (${s.focus_qids.length}문항)</b>`;
   const st = stagesOf(a);
   return st.length === STAGES.length ? '전체 단계' : '단계: ' + st.map(k => STAGE_NAME[k]).join('·');
 }
