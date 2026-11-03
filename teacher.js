@@ -194,7 +194,7 @@ function tabToday() {
         <div><small>정답률</small><b class="${accCls(i.acc)}">${i.acc == null ? '-' : i.acc + '<em>%</em>'}</b></div>
       </div>
       <div class="sprog">${progressRows(i.s.id)}</div>
-      <div class="sf"><span>마지막 제출 ${i.last ? fmtDT(i.last.submitted_at) : '없음'}</span>${i.pend ? `<span class="badge bad">채점 대기 ${i.pend}</span>` : ''}</div>
+      <div class="sf"><span>마지막 제출 ${i.last ? fmtDT(i.last.submitted_at) : '없음'}</span>${i.pend ? `<span class="badge bad">채점 대기 ${i.pend}</span>` : ''}${(!i.last || (Date.now() - new Date(i.last.submitted_at)) > 3 * 864e5) ? `<span class="badge warn">⚠ ${i.last ? Math.floor((Date.now() - new Date(i.last.submitted_at)) / 864e5) + '일째' : '아직'} 미학습</span>` : ''}${i.acc != null && i.acc < 60 ? `<span class="badge bad">정답률 낮음</span>` : ''}<button class="btn small ghost" data-wprint="${i.s.id}" style="margin-left:auto">🖨️ 오답 프린트</button></div>
     </article>`).join('');
   const seg = (k, n, c) => `<button class="seg ${f === k ? 'on' : ''}" data-f="${k}">${n}<em>${c}</em></button>`;
   $('#tb').innerHTML = `
