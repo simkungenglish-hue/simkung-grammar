@@ -286,7 +286,7 @@ function myLib() {
   const seen = new Set();
   return (ST.videos || []).filter(v => v.school_book && v.school_book.trim().endsWith(g))
     .sort((a, b) => String(a.school_book).localeCompare(String(b.school_book), 'ko') || (a.lesson || 0) - (b.lesson || 0) || (a.no || 0) - (b.no || 0))
-    .filter(v => { const k = v.school_book + '|' + v.yt_id; if (seen.has(k)) return false; seen.add(k); return true; });
+    .filter(v => { const k = v.yt_id; if (seen.has(k)) return false; seen.add(k); return true; });
 }
 function libCard() {
   const vs = myLib(); if (!vs.length) return '';
