@@ -49,7 +49,7 @@ async function tabVideos() {
     const html = groups.map(g => {
       const us = g.arr.map(v => ({ v, u: T.units.find(x => x.id === v.unit_id) })).filter(x => x.u).sort((a, b) => String(a.u.lesson).localeCompare(String(b.u.lesson), undefined, { numeric: true }));
       us.forEach(x => used.add(x.u.id));
-      const urows = us.map(({ v, u }) => `<div class="row between" style="align-items:center;gap:8px;padding:8px 10px;border:1px solid #f0e2d8;border-radius:10px;margin-top:6px;background:#fff">
+      const urows = us.map(({ v, u }) => `<div class="row between" style="align-items:center;gap:8px;padding:8px 10px;border:1px solid #e2e8f0;border-radius:10px;margin-top:6px;background:#fff">
         <div><span class="badge gray">${esc(u.lesson || '')}</span> <b>${esc(u.title)}</b></div>
         <div class="row" style="gap:6px">${v.start_sec != null ? `<button class="btn small ghost" data-tvp="${v.id}" data-at="${v.start_sec}">▶ 이 부분 (${tvLen2(v.start_sec)})</button>` : ''}${v.start_sec == null && v.serse_sec != null ? `<button class="btn small ghost" data-tvp="${v.id}" data-at="${v.serse_sec}">✍️ 서술형 (${tvLen2(v.serse_sec)})</button>` : ''}</div></div>`).join('');
       return `<div class="card" style="padding:14px 16px;margin-bottom:12px;border:2px solid #c7d2fe;background:linear-gradient(180deg,#f5f7ff,#fff)">

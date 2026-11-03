@@ -516,7 +516,7 @@ function naesinMatrix(approvedN, mode) {
       <div><label>통과 기준 (%)</label><input type="number" id="ac" min="1" max="100" value="80"></div>
       <div><label>다시 풀기 횟수</label><input type="number" id="ar" min="0" max="10" value="2"></div>
       <div><label>내신대비 문항 수</label><input type="number" id="ae" min="1" max="20" value="8"></div></div></details>
-    <div class="mxset" style="padding:10px 12px;border:1px solid #f0e2d8;border-radius:12px;margin-top:8px"><b>학습할 단계</b> <span class="tiny">아이 실력에 맞게 골라요 (개념만 · 서술형만 · 내신대비만 등)</span>${stagePickHtml('ast', null)}</div>`;
+    <div class="mxset" style="padding:10px 12px;border:1px solid #e2e8f0;border-radius:12px;margin-top:8px"><b>학습할 단계</b> <span class="tiny">아이 실력에 맞게 골라요 (개념만 · 서술형만 · 내신대비만 등)</span>${stagePickHtml('ast', null)}</div>`;
   document.querySelectorAll('[data-mode]').forEach(b => b.onclick = () => { try { localStorage.setItem('asgMode', b.dataset.mode); } catch (e) {} tabAssign(); });
   $('#mxreg').onclick = () => bookRegModal(tabAssign);
   $('#mxcv').onchange = async e => { const f = e.target.files[0]; if (!f || !M.book) return; try { await saveCover(M.book, f); toast('표지를 바꿨어요'); await loadTeacher(); tabAssign(); } catch (er) { toast(errText(er), 4000); } };

@@ -3,7 +3,7 @@
 'use strict';
 const RPT = (() => {
   const E = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  const C = { main: '#e8665d', light: '#f3b3ad', gray: '#a9a9a9', dark: '#444', line: '#d8d8d8' };
+  const C = { main: '#4f46e5', light: '#a5b4fc', gray: '#a9a9a9', dark: '#444', line: '#d8d8d8' };
   const clipT = (s, n) => { s = String(s ?? ''); return s.length > n ? s.slice(0, n - 1) + '…' : s; };
   const durTxt = sec => { if (sec == null) return '-'; if (sec < 60) return sec + '초'; const m = Math.floor(sec / 60); return m < 60 ? m + '분' : Math.floor(m / 60) + '시간 ' + (m % 60) + '분'; };
   const none = t => `<p class="rnone">${E(t)}</p>`;

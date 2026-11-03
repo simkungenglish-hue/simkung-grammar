@@ -266,18 +266,18 @@ const fmtLen = s => { s = Math.round(s || 0); return Math.floor(s / 60) + ':' + 
 const tsec = t => { const p = String(t).split(':').map(Number); return p.length === 3 ? p[0] * 3600 + p[1] * 60 + p[2] : p[0] * 60 + (p[1] || 0); };
 (function () { if (document.getElementById('vcard-css')) return; const st = document.createElement('style'); st.id = 'vcard-css'; st.textContent = `
 .vgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px;margin-top:10px}
-.vcard{display:flex;flex-direction:column;border:1px solid #f0e2d8;border-radius:14px;overflow:hidden;background:#fff;text-align:left;padding:0;cursor:pointer;transition:transform .15s, box-shadow .15s;font:inherit;color:inherit;width:100%}
+.vcard{display:flex;flex-direction:column;border:1px solid #e2e8f0;border-radius:14px;overflow:hidden;background:#fff;text-align:left;padding:0;cursor:pointer;transition:transform .15s, box-shadow .15s;font:inherit;color:inherit;width:100%}
 .vcard:hover{transform:translateY(-2px);box-shadow:0 8px 22px rgba(60,39,48,.12)}
 .vthumb{position:relative;display:block;width:100%;aspect-ratio:16/9;background:linear-gradient(135deg,#e0e7ff,#dbeafe);overflow:hidden;border:0;padding:0;cursor:pointer}
 .vthumb img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
-.vthumb .vfb{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:10px;text-align:center;font-weight:800;color:#3c2730;font-size:15px;line-height:1.3}
+.vthumb .vfb{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:10px;text-align:center;font-weight:800;color:#0f172a;font-size:15px;line-height:1.3}
 .vthumb .vplay{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:46px;height:46px;border-radius:50%;background:rgba(0,0,0,.55);color:#fff;display:flex;align-items:center;justify-content:center;font-size:18px;opacity:.9}
 .vthumb .vlen{position:absolute;right:6px;bottom:6px;background:rgba(0,0,0,.78);color:#fff;font-size:12px;font-weight:700;padding:2px 6px;border-radius:5px}
 .vbody{padding:9px 11px 11px;display:flex;flex-direction:column;gap:6px}
 .vbody b{font-size:14px;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .chgroup{border:2px solid #c7d2fe;background:linear-gradient(180deg,#f5f7ff,#fff)}
 .chgroup .chvid .vcard{max-width:440px}
-.chgroup .chunits .card{margin:10px 0 0;box-shadow:none;border:1px solid #f0e2d8;background:#fff}
+.chgroup .chunits .card{margin:10px 0 0;box-shadow:none;border:1px solid #e2e8f0;background:#fff}
 @media (max-width:600px){.vgrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.vbody b{font-size:13px}.vthumb .vplay{width:38px;height:38px;font-size:15px}}
 `; document.head.appendChild(st); })();
 function vThumb(v) { return `<span class="vfb">${esc(v.title)}</span><img src="https://i.ytimg.com/vi/${esc(v.yt_id)}/mqdefault.jpg" alt="" loading="lazy" onload="if(this.naturalWidth<=120)this.remove()" onerror="this.remove()"><span class="vplay">▶</span>${v.len_sec ? `<span class="vlen">${fmtLen(v.len_sec)}</span>` : ''}`; }
@@ -388,7 +388,7 @@ async function deckView(deckId, i, back) {
   i = Math.max(0, Math.min(n - 1, i));
   shell(`<p><a href="#" id="back">← 돌아가기</a></p><div class="card" style="padding:10px"><div class="row between"><b style="font-size:15px">${esc(d.title)}</b><span class="tiny">${i + 1} / ${n}</span></div>
     <div class="progress" style="margin:8px 0"><i style="width:${(i + 1) / n * 100}%"></i></div>
-    <img src="${esc(urls[i])}" alt="수업 화면 ${i + 1}" style="width:100%;border-radius:10px;border:1px solid #eadfd8;display:block">
+    <img src="${esc(urls[i])}" alt="수업 화면 ${i + 1}" style="width:100%;border-radius:10px;border:1px solid #e2e8f0;display:block">
     <div class="row between" style="margin-top:12px"><button class="btn ghost" id="dp" ${i === 0 ? 'disabled' : ''}>이전</button>${i < n - 1 ? '<button class="btn" id="dn">다음</button>' : '<button class="btn" id="dd">수업 끝! 돌아가기</button>'}</div>
     <p class="tiny" style="margin-top:8px">← → 키로도 넘길 수 있어요. 소리 내어 읽으면서 보면 더 잘 외워져요.</p></div>`);
   const go = j => deckView(deckId, j, back), home = () => (back === 'gr' ? naesinGrammar() : /^u/.test(back) ? unitView(back.slice(1)) : studentHome());

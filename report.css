@@ -1,7 +1,7 @@
 /* 성장 리포트 (화면 + A4 인쇄) — 원장님 화면과 공유 링크 화면이 같이 써요 */
-.report.a4 { background: #fff; color: #222; max-width: 210mm; margin: 0 auto; padding: 14mm 12mm; border: 1px solid #e3d9cc; border-radius: 10px; font-size: 10.5pt; line-height: 1.5; }
+.report.a4 { background: #fff; color: #222; max-width: 210mm; margin: 0 auto; padding: 14mm 12mm; border: 1px solid #e2e8f0; border-radius: 10px; font-size: 10.5pt; line-height: 1.5; }
 .report.a4 h1 { font-size: 1.45rem; margin: 2px 0 6px; padding: 0; border: 0; letter-spacing: -.01em; }
-.report.a4 h2 { font-size: 1rem; margin: 0 0 6px; padding: 1px 0 3px 8px; border-left: 3px solid #ee6f66; border-bottom: 1px solid #ddd; }
+.report.a4 h2 { font-size: 1rem; margin: 0 0 6px; padding: 1px 0 3px 8px; border-left: 3px solid #4f46e5; border-bottom: 1px solid #ddd; }
 .report.a4 .rsec { margin-top: 12px; break-inside: avoid; page-break-inside: avoid; }
 .report.a4 .rgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 18px; align-items: start; }
 .report.a4 table { width: 100%; border-collapse: collapse; font-size: .9em; }
@@ -14,7 +14,7 @@
 .report.a4 .rchart.rnar { max-width: 340px; }
 .report.a4 .rkpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 10px; }
 .report.a4 .rkpi { border: 1px solid #ddd; border-radius: 8px; padding: 6px 8px; text-align: center; background: #fff; }
-.report.a4 .rk-v { font-size: 1.15rem; font-weight: 700; color: #d4544b; }
+.report.a4 .rk-v { font-size: 1.15rem; font-weight: 700; color: #4338ca; }
 .report.a4 .rk-t { font-size: .78rem; color: #555; }
 .report.a4 .rk-s { font-size: .7rem; color: #888; }
 .report.a4 .rdonut { display: flex; align-items: center; gap: 10px; }
@@ -29,23 +29,23 @@
 .report.a4 .pill { display: inline-block; padding: 1px 8px; border: 1px solid #ccc; border-radius: 999px; font-size: .8rem; margin: 1px 2px; }
 
 /* 전문 분석표 느낌: 머리말·학습 내용 박스·종합 코멘트 */
-.report.a4 .rhead { border-bottom: 2px solid #ee6f66; padding-bottom: 8px; }
-.report.a4 .rbrand { font-size: .76rem; font-weight: 700; letter-spacing: .05em; color: #d4544b; }
+.report.a4 .rhead { border-bottom: 2px solid #4f46e5; padding-bottom: 8px; }
+.report.a4 .rbrand { font-size: .76rem; font-weight: 700; letter-spacing: .05em; color: #4338ca; }
 .report.a4 .rmeta { display: flex; flex-wrap: wrap; gap: 4px 20px; font-size: .86rem; color: #333; }
 .report.a4 .rmeta i { font-style: normal; font-size: .74rem; color: #888; margin-right: 6px; }
-.report.a4 .runit { margin-top: 12px; border: 1.5px solid #ee6f66; border-radius: 8px; padding: 8px 12px 6px; break-inside: avoid; }
-.report.a4 .ru-h { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font-weight: 700; font-size: 1.02rem; color: #d4544b; border-bottom: 1px solid #f0c9c5; padding-bottom: 4px; margin-bottom: 2px; }
+.report.a4 .runit { margin-top: 12px; border: 1.5px solid #4f46e5; border-radius: 8px; padding: 8px 12px 6px; break-inside: avoid; }
+.report.a4 .ru-h { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font-weight: 700; font-size: 1.02rem; color: #4338ca; border-bottom: 1px solid #c7d2fe; padding-bottom: 4px; margin-bottom: 2px; }
 .report.a4 .ru-h small { font-weight: 400; font-size: .74rem; color: #999; }
 .report.a4 .ru-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 3px 10px; padding: 6px 0; border-bottom: 1px dashed #e6e6e6; }
 .report.a4 .ru-row:last-child { border-bottom: 0; }
 .report.a4 .ru-book { font-size: .76rem; border: 1px solid #bbb; border-radius: 999px; padding: 0 8px; color: #555; white-space: nowrap; }
 .report.a4 .ru-name { font-size: 1.12rem; color: #222; flex: 1 1 230px; line-height: 1.35; }
 .report.a4 .ru-stat { font-size: .82rem; color: #666; white-space: nowrap; }
-.report.a4 .rkpi { border-top: 2px solid #ee6f66; }
+.report.a4 .rkpi { border-top: 2px solid #4f46e5; }
 .report.a4 th { border-bottom: 1.5px solid #bbb; }
 .report.a4 .rcm-row { display: grid; grid-template-columns: 92px 1fr; border-bottom: 1px solid #ececec; }
 .report.a4 .rcm-row:last-child { border-bottom: 0; }
-.report.a4 .rcm-l { padding: 7px 8px; color: #d4544b; font-size: .88rem; border-right: 1px solid #ececec; }
+.report.a4 .rcm-l { padding: 7px 8px; color: #4338ca; font-size: .88rem; border-right: 1px solid #ececec; }
 .report.a4 .rcm-t { padding: 7px 10px; line-height: 1.6; word-break: keep-all; }
 .report.a4 .rcm-full { grid-column: 1 / -1; }
 @media (max-width: 640px) { .report.a4 .rcm-row { grid-template-columns: 72px 1fr; } .report.a4 .ru-stat { white-space: normal; } }
