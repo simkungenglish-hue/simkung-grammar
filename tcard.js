@@ -6,8 +6,10 @@
   st.textContent = `
 .prow .bk{display:inline-block;font-size:.66rem;font-weight:800;padding:1px 6px;border-radius:6px;margin-right:5px;vertical-align:1px;background:#f1f5f9;color:#475569}
 .prow .bk.g{background:#eef2ff;color:#4338ca}.prow .bk.w{background:#ecfdf5;color:#047857}.prow .bk.x{background:#fff7ed;color:#c2410c}.prow .bk.n{background:#fdf2f8;color:#be185d}
-.prow .pact{display:flex;justify-content:flex-end;gap:6px;margin-top:5px}
-.prow .pact button{font:inherit;font-size:.74rem;font-weight:700;border:1px solid #e2e8f0;background:#fff;color:#475569;border-radius:8px;padding:3px 9px;cursor:pointer}
+.prow .phl>b{white-space:nowrap;flex-shrink:0}
+.prow .phl{min-width:0}
+.prow .pact{display:flex;justify-content:flex-end;align-items:center;gap:5px;margin-top:4px}
+.prow .pact button{font:inherit;font-size:.74rem;font-weight:700;border:1px solid #e2e8f0;background:#fff;color:#475569;border-radius:7px;padding:1px 8px;cursor:pointer;line-height:1.6}
 .prow .pact button:hover{border-color:#a5b4fc;color:#4338ca;background:#f5f7ff}
 .prow .pact button.del:hover{border-color:#fecaca;color:#dc2626;background:#fef2f2}
 .modal:has(.ae){width:min(560px,94vw)!important;max-width:min(560px,94vw)!important}
