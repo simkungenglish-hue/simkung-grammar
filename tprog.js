@@ -7,7 +7,9 @@
 .prow[data-pa]{cursor:pointer;border-radius:10px;padding:6px 8px;margin:0 -8px;transition:background .12s}
 .prow[data-pa]:hover{background:#eef2ff}
 .prow[data-pa] .ph b::after{content:' ›';color:#94a3b8;font-weight:700}
-.pg{min-width:min(720px,92vw)}
+.modal:has(.pg){width:min(900px,94vw)!important;max-width:min(900px,94vw)!important;box-sizing:border-box;max-height:92vh;overflow:auto}
+.pg{width:100%;box-sizing:border-box}
+.pg .stg{box-sizing:border-box}
 .pg .hd{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;margin-bottom:12px}
 .pg .hd h2{margin:0;font-size:1.15rem}.pg .hd small{color:#64748b}
 .pg .sum{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px}
