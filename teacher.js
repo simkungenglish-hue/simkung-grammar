@@ -13,7 +13,7 @@ async function loadTeacher() {
   const sb = S.sb;
   const [st, as, un, qs, at, nt, cv, kd, ac, bs] = await Promise.all([
     sb.from('profiles').select('*').eq('role', 'student').order('name'),
-    sb.from('assignments').select('*').order('created_at'),
+    fetchAll(() => sb.from('assignments').select('*').order('created_at')),
     sb.from('units').select('*').order('code'),
     (async () => { // 서버가 한 번에 1000행까지만 주므로 나눠서 모두 불러와요
       let all = [], from = 0;
@@ -24,7 +24,7 @@ async function loadTeacher() {
       }
       return { data: all, error: null };
     })(),
-    sb.from('attempts').select('*').order('submitted_at', { ascending: false }).range(0, 4999),
+    fetchAll(() => sb.from('attempts').select('*').order('submitted_at', { ascending: false })),   // 서버가 1000행에서 자르므로 나눠서 모두 불러와요
     sb.from('teacher_notes').select('*').order('created_at', { ascending: false }),
     sb.from('book_covers').select('*'),
     sb.from('app_settings').select('value').eq('key', 'book_kinds').maybeSingle(),
@@ -54,7 +54,7 @@ function indexT() {
   }
 }
 async function loadKeys() {
-  const { data, error } = await S.sb.from('question_keys').select('*');
+  const { data, error } = await fetchAll(() => S.sb.from('question_keys').select('*'), 'question_id');
   if (error) throw error;
   T.keys = Object.fromEntries(data.map(k => [k.question_id, k]));
 }
