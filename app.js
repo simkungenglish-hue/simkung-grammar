@@ -52,6 +52,19 @@ function cfgOf(asg) {
   const s = asg.settings || {};
   return { per_stage: s.per_stage ?? 5, pass_pct: s.pass_pct ?? 80, max_retries: s.max_retries ?? 2, stage_counts: s.stage_counts || {} };
 }
+/* 서버는 한 번에 1000행까지만 돌려줘요(range(0, 4999)로 달라고 해도 1000행에서 잘려요).
+   그래서 1000행씩 나눠 끝까지 불러와요. build()는 매번 새 쿼리를 만들어 돌려주고, tie는 쪽 사이에 줄이 겹치거나 빠지지 않게 마지막에 붙이는 정렬 열이에요. */
+async function fetchAll(build, tie = 'id', max = 20000) {
+  const PAGE = 1000; let all = [];
+  for (let from = 0; from < max; from += PAGE) {
+    const r = await build().order(tie).range(from, from + PAGE - 1);
+    if (r.error) return r;
+    const rows = r.data || [];
+    all = all.concat(rows);
+    if (rows.length < PAGE) break;
+  }
+  return { data: all, error: null };
+}
 function stageCount(asg, stage) { const c = cfgOf(asg); return c.stage_counts[stage] ?? c.per_stage; }
 
 const S = { sb: null, user: null, profile: null };
@@ -134,8 +147,8 @@ async function loadStudent() {
   const [a, c, q, t] = await Promise.all([
     S.sb.from('assignments').select('*, units(*)').eq('student_id', u).order('created_at'),
     S.sb.from('concepts').select('*').order('ord'),
-    S.sb.from('questions').select('id,unit_id,concept_tag,stage,qtype,ord,prompt,ko,choices,hint,points').order('ord'),
-    S.sb.from('attempts').select('*').eq('student_id', u).order('submitted_at')
+    fetchAll(() => S.sb.from('questions').select('id,unit_id,concept_tag,stage,qtype,ord,prompt,ko,choices,hint,points').order('ord')),
+    fetchAll(() => S.sb.from('attempts').select('*').eq('student_id', u).order('submitted_at'))
   ]);
   const err = a.error || c.error || q.error || t.error;
   if (err) throw err;
