@@ -1,0 +1,132 @@
+/* 심쿵영어 어휘 학습 화면 (크림 + 코랄 브랜드색) */
+.sect { font-size: 1.05rem; margin: 18px 0 8px; color: var(--muted); }
+.vred { color: var(--coral-deep); }
+.vgreen { color: var(--ok); font-weight: 700; }
+
+/* 학생 홈의 어휘 카드 */
+.vhome { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; cursor: pointer; border-color: #f6cfc8; background: linear-gradient(135deg, #fff 0%, #fff6f3 100%); }
+.vhome:hover { border-color: var(--coral); }
+.vh-l { display: flex; align-items: center; gap: 12px; }
+.vh-ic { width: 46px; height: 46px; border-radius: 14px; background: linear-gradient(145deg, #f6837a, #e2574e); color: #fff; font-weight: 800; font-size: 1.15rem; display: grid; place-items: center; flex: none; }
+.vh-r { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.vchip { font-weight: 700; font-size: .88rem; padding: 4px 10px; border-radius: 999px; background: var(--cream, #fff6ea); border: 1px solid var(--line); }
+
+/* 숫자 요약 */
+.vstats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-bottom: 14px; }
+.vstat { background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 12px; text-align: center; box-shadow: var(--shadow); }
+.vstat b { display: block; font-size: 1.45rem; font-weight: 800; letter-spacing: -.02em; }
+.vstat span { font-size: .8rem; color: var(--muted); font-weight: 600; }
+.vgoal .goal { display: flex; gap: 8px; align-items: center; padding: 6px 0; font-weight: 600; }
+.vgoal .goal span { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; border: 2px solid var(--line); color: var(--muted); font-size: .85rem; flex: none; }
+.vgoal .goal.done span { background: var(--ok); border-color: var(--ok); color: #fff; }
+.vgoal .goal.done { color: var(--ok); }
+
+/* 유닛 칩 (한눈에 보이게 작은 칸으로) */
+.uchips { display: flex; flex-wrap: wrap; gap: 6px; }
+.uchip { min-width: 46px; height: 46px; border-radius: 12px; border: 1px solid var(--line); background: #fff; font: inherit; font-weight: 800; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.05; cursor: pointer; padding: 2px 6px; color: var(--ink); position: relative; }
+.uchip small { font-size: .66rem; font-weight: 600; color: var(--muted); }
+.uchip.ok { background: var(--ok-soft); border-color: #bfe0cb; color: var(--ok); }
+.uchip.now { background: var(--coral-soft); border-color: var(--coral); color: var(--coral-deep); }
+.uchip.lock { background: #f7f2ec; color: #b4a596; cursor: default; }
+.uchip.pickable input { position: absolute; opacity: 0; pointer-events: none; }
+.uchip.pickable:has(input:checked) { background: var(--coral); border-color: var(--coral); color: #fff; }
+.uchip.pickable:has(input:checked) small { color: #fff; }
+
+/* 유닛 6단계 */
+.vsteps { display: grid; gap: 8px; }
+.vstep { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 14px; background: #fff; }
+.vstep.done { background: #fbfffc; border-color: #d4eadc; }
+.vstep.locked { opacity: .5; }
+.vs-ic { font-size: 1.5rem; width: 38px; text-align: center; flex: none; }
+.vs-t { flex: 1; min-width: 0; }
+.vs-t .badge { margin-top: 3px; }
+
+/* 단어 카드 */
+.fcard { text-align: center; padding: 26px 18px; }
+.fcard.tap { cursor: pointer; min-height: 220px; display: flex; flex-direction: column; justify-content: center; }
+.fc-word { font-size: 2.3rem; font-weight: 800; letter-spacing: -.02em; line-height: 1.2; word-break: break-word; font-family: 'Pretendard', system-ui, sans-serif; }
+.fc-word.sm { font-size: 1.9rem; }
+.fc-pos { color: var(--muted); font-style: italic; margin-top: 2px; }
+.fc-mean { font-size: 1.35rem; font-weight: 700; color: var(--coral-deep); margin-top: 10px; }
+.fc-mean.big { font-size: 1.6rem; margin: 6px 0 4px; }
+.fc-hint { color: var(--muted); margin-top: 14px; }
+.fc-box { margin: 14px auto 0; max-width: 460px; text-align: left; background: var(--cream, #fff6ea); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; }
+.fc-box b { font-size: 1.1rem; }
+.fc-box.ex2 { background: #fff; }
+.spk { border: 1px solid var(--line); background: #fff; border-radius: 999px; width: 36px; height: 36px; font-size: 1rem; cursor: pointer; vertical-align: middle; margin-left: 4px; }
+.spk:active { transform: scale(.94); }
+.btn.big { min-height: 56px; font-size: 1.08rem; }
+.vtwo { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+/* 문제 */
+.vq { text-align: center; padding: 22px 16px; }
+.vq .choice { text-align: center; font-size: 1.06rem; font-weight: 600; }
+.choice.right { border-color: var(--ok); background: var(--ok-soft); color: #245c3d; font-weight: 800; }
+.choice.wrong { border-color: var(--bad); background: var(--bad-soft); color: #8e2a20; text-decoration: line-through; }
+.choice:disabled { cursor: default; }
+.vin { font-size: 1.35rem !important; text-align: center; font-weight: 700; letter-spacing: .02em; margin-top: 10px; }
+.vmask { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 1.3rem; letter-spacing: .25em; color: var(--muted); margin-top: 8px; }
+.vq .result { text-align: left; }
+
+/* 짝 맞추기 */
+.mgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+.mcol { display: grid; gap: 8px; align-content: start; }
+.mtile { min-height: 58px; border: 2px solid var(--line); background: #fff; border-radius: 14px; font: inherit; font-weight: 700; font-size: 1rem; padding: 8px; cursor: pointer; word-break: break-word; transition: transform .1s, opacity .2s; }
+.mtile.sel { border-color: var(--coral); background: var(--coral-soft); }
+.mtile.gone { opacity: 0; pointer-events: none; }
+.mtile.shake { animation: vshake .3s; border-color: var(--bad); }
+@keyframes vshake { 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
+.clock { font-variant-numeric: tabular-nums; font-weight: 800; }
+.clock.big { font-size: 2.4rem; margin: 6px 0; color: var(--coral-deep); }
+
+/* 단계 끝 */
+.vend { text-align: center; padding: 26px 18px; }
+.vend-ic { font-size: 2.6rem; }
+.wlist { text-align: left; margin: 12px auto 0; max-width: 520px; border: 1px solid var(--line); border-radius: 12px; padding: 8px 12px; }
+.wrow { display: flex; align-items: center; gap: 8px; padding: 5px 0; border-bottom: 1px dashed var(--line); flex-wrap: wrap; }
+.wrow:last-child { border-bottom: 0; }
+.wrow span { color: var(--muted); }
+
+/* 원장님 화면 */
+.vsubs { display: flex; gap: 8px; align-items: center; margin-bottom: 14px; flex-wrap: wrap; }
+.vsubs .seg.on { background: var(--coral); border-color: var(--coral); color: #fff; }
+.wchips { display: flex; flex-wrap: wrap; gap: 6px; }
+.wchip { border: 1px solid var(--line); border-radius: 999px; padding: 4px 10px; font-size: .88rem; background: #fff; }
+.wchip em { font-style: normal; font-weight: 800; color: var(--coral-deep); margin-left: 4px; }
+.scard[data-vstu] { cursor: pointer; }
+.scard[data-vstu]:hover { border-color: var(--coral); }
+.boxbar { display: flex; height: 26px; border-radius: 8px; overflow: hidden; border: 1px solid var(--line); margin: 6px 0; }
+.boxbar i { display: grid; place-items: center; font-style: normal; font-size: .75rem; font-weight: 800; color: #5a4a3d; min-width: 18px; }
+.b1 { background: #fde2de; } .b2 { background: #fdeccf; } .b3 { background: #fbf4c7; } .b4 { background: #e3f2d9; } .b5 { background: #cfeadb; } .b6 { background: #a9d9bd; }
+.lg { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin: 0 3px 0 8px; vertical-align: middle; }
+.vt-bk { margin: 8px 0; }
+.vt-bk .uchips { margin-top: 6px; }
+.vt-lv h3 { margin: 16px 0 8px; }
+.bgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+.bcard { text-align: left; border: 1px solid var(--line); background: #fff; border-radius: 14px; padding: 14px; font: inherit; cursor: pointer; display: flex; flex-direction: column; gap: 6px; box-shadow: var(--shadow); }
+.bcard:hover { border-color: var(--coral); }
+.bcard b { font-size: 1.02rem; }
+.bcard span:not(.badge) { color: var(--muted); font-size: .86rem; }
+.bcard .badge { align-self: flex-start; }
+.vedit table { min-width: 900px; }
+.vedit td { padding: 3px 4px; }
+.vedit input { padding: 6px 8px; font-size: .9rem; min-height: 0; margin: 0; }
+.vset { grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); margin-top: 10px; }
+
+@media (max-width: 560px) {
+  .fc-word { font-size: 1.9rem; }
+  .fc-word.sm { font-size: 1.6rem; }
+  .mtile { min-height: 52px; font-size: .92rem; }
+  .vhome .vh-r { width: 100%; justify-content: space-between; }
+  .uchip { min-width: 42px; height: 42px; }
+  .vstat { padding: 10px 4px; border-radius: 12px; }
+  .vstat b { font-size: 1.15rem; }
+  .vstat span { font-size: .7rem; }
+}
+
+/* 레벨 어휘 / 내신 교과어휘 구분 */
+.vkind { font-size: .74rem; font-weight: 800; padding: 2px 8px; border-radius: 999px; vertical-align: middle; margin-right: 4px; }
+.vkind.level { background: var(--cream, #fff6ea); color: #8a5a2b; border: 1px solid #f0dcc4; }
+.vkind.school { background: #eef3ff; color: #3a55a8; border: 1px solid #d5def7; }
+.vt-track { margin-top: 6px; }
+.vt-track > h2 { margin: 18px 0 4px; }

@@ -15,7 +15,14 @@ const ERR_MSG = {
   already_correct: '이미 맞힌 문제예요.',
   solve_first: '먼저 한 번 풀어 본 뒤에 해설을 볼 수 있어요.',
   forbidden: '권한이 없어요.',
-  bad_score: '점수가 문제 배점을 넘었어요.'
+  bad_score: '점수가 문제 배점을 넘었어요.',
+  unit_locked: '아직 열리지 않은 유닛이에요. 앞 유닛을 먼저 통과해 주세요.',
+  step_locked: '앞 단계를 먼저 끝내 주세요.',
+  bad_answer: '답 형식이 올바르지 않아요. 다시 해 주세요.',
+  incomplete: '아직 안 푼 문장이 있어요. 모든 문장을 풀어야 단계가 끝나요.',
+  dup_run: '이미 기록된 학습이에요.',
+  review_first: '오늘 복습을 먼저 끝내면 게임이 열려요.',
+  not_learned: '아직 공부하지 않은 단어예요. 유닛을 먼저 공부해요.'
 };
 function errText(e) {
   const m = (e && e.message) || String(e);
@@ -76,7 +83,7 @@ function shell(inner, extraTop = '') {
   const who = nm ? (p.role === 'teacher' && !/원장/.test(nm) ? nm + ' 원장님' : nm) : '';
   app().innerHTML = `
   <header class="topbar noprint">
-    <div class="brand"><span class="logo"><svg viewBox="0 0 24 24" width="20" height="20" fill="#fff"><path d="M12 21s-7.5-4.6-9.6-9.2C.9 8.4 2.6 5 5.9 5c2 0 3.4 1.1 4.1 2.4C10.700 6.100 12.100 5 14.100 5c3.300 0 5 3.400 3.500 6.800C19.500 16.400 12 21 12 21z" transform="translate(0 -.5)"/></svg></span><div class="bt"><b>스텔라의 심쿵영어</b><small>문법 학습</small></div></div>
+    <div class="brand"><span class="logo"><svg viewBox="0 0 24 24" width="20" height="20" fill="#fff"><path d="M12 21s-7.5-4.6-9.6-9.2C.9 8.4 2.6 5 5.9 5c2 0 3.4 1.1 4.1 2.4C10.700 6.100 12.100 5 14.100 5c3.300 0 5 3.400 3.500 6.800C19.500 16.400 12 21 12 21z" transform="translate(0 -.5)"/></svg></span><div class="bt"><b>스텔라의 심쿵영어</b><small>어휘 · 문법 학습</small></div></div>
     <div class="tright">${extraTop}<span class="who">${esc(who)}</span>
       <button class="btn ghost small" id="btnPw">비밀번호</button>
       <button class="btn ghost small" id="btnOut">로그아웃</button></div>
@@ -112,7 +119,7 @@ function loginView(msg = '') {
   app().innerHTML = `<div class="wrap" style="max-width:420px;padding-top:8vh">
     <div class="card">
       <h1 style="color:var(--coral-deep)">스텔라의 심쿵영어</h1>
-      <p class="muted">문법 학습에 로그인하세요.</p>
+      <p class="muted">어휘 · 문법 학습에 로그인하세요.</p>
       ${msg ? `<div class="result bad">${esc(msg)}</div>` : ''}
       <form id="lf">
         <label for="em">이메일(아이디)</label><input id="em" type="email" autocomplete="username" required>
@@ -220,7 +227,7 @@ function stageUnlocked(asg, stage) {
 /* ---------- 학생: 화면 ---------- */
 async function studentStart() {
   shell('<p class="muted">불러오는 중…</p>');
-  try { await loadStudent(); } catch (e) { return shell(`<div class="result bad">${esc(errText(e))}</div>`); }
+  try { await Promise.all([loadStudent(), typeof loadVocab === 'function' ? loadVocab() : null, typeof loadPassage === 'function' ? loadPassage() : null]); } catch (e) { return shell(`<div class="result bad">${esc(errText(e))}</div>`); }
   studentHome();
 }
 function asgCard(a) {
@@ -241,11 +248,15 @@ function bindHome() {
 function studentHome() {
   const nae = ST.asg.filter(isNaesin), gen = ST.asg.filter(a => !isNaesin(a));
   const hub = nae.length ? `<div class="card soft"><div class="row between"><div><h2 style="margin:0">📘 중등 내신</h2><div class="muted">교과서로 시험 준비를 해요.</div></div><button class="btn" id="nh">열기</button></div></div>` : '';
-  shell(`<h1>오늘의 공부</h1>${hub}${libCard()}${genGrouped(gen) || (nae.length ? '' : '<div class="card">아직 배정된 단원이 없어요. 원장님께 물어보세요.</div>')}
+  const vcard = typeof vocabHomeCard === 'function' ? vocabHomeCard() : '';
+  const pcard = typeof passageHomeCard === 'function' ? passageHomeCard() : '';
+  shell(`<h1>오늘의 공부</h1>${vcard}${pcard}${hub}${libCard()}${genGrouped(gen) || (nae.length ? '' : '<div class="card">아직 배정된 단원이 없어요. 원장님께 물어보세요.</div>')}
     <div class="card"><div class="row between"><div><h3 style="margin:0">오답노트</h3><div class="muted">틀린 문제를 다시 확인해요.</div></div><button class="btn ghost" id="wr">열기</button></div></div>`);
   bindHome();
   if ($('#nh')) $('#nh').onclick = () => naesinHub();
   $('#wr').onclick = () => wrongNote();
+  if (typeof bindVocabHome === 'function') bindVocabHome();
+  if (typeof bindPassageHome === 'function') bindPassageHome();
 }
 /* ---------- 중등 내신 5칸 ---------- */
 const NKIND = { dialog: ['💬', '대화문', '대화문 단어 · 대화문 학습'], grammar: ['✏️', '문법', '문법 ① · ② 개념 수업'], reading: ['📖', '본문', '본문 단어 · 본문 학습'], mock: ['🎯', '동형모고', '난이도 있는 실전'], hit: ['🔥', '적중모고', '예상문제 풀기'] };

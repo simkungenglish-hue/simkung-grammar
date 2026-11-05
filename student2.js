@@ -142,7 +142,10 @@ function studentHome() {
     ${nae.length ? `<button class="s2-tile" id="t-nh"><div class="ic">📘</div><b>중등 내신</b><small>교과서별 시험 대비</small></button>` : ''}</div>`;
   const B = [['🌱', '첫 정답', stt.total > 0], ['🔥', '3일 연속', stt.streak >= 3], ['🏃', '7일 연속', stt.streak >= 7], ['🎯', '정답률 90%', stt.acc != null && stt.acc >= 90], ['✍️', '서술형 정답', stt.perfectWrite], ['🏆', '단원 완료', fin.length > 0], ['💯', '100문제', stt.total >= 100]];
   const badges = `<div class="s2-badges">${B.map(([e, n, on]) => `<div class="s2-badge ${on ? 'on' : ''}"><div class="e">${e}</div>${n}</div>`).join('')}</div>`;
-  shell(`${hero}${nowCard}
+  // 어휘(게임 포함)·내신 본문 카드: 배정된 학생에게만 보여요
+  const vcard = typeof vocabHomeCard === 'function' ? vocabHomeCard() : '', pcard = typeof passageHomeCard === 'function' ? passageHomeCard() : '';
+  const vp = vcard || pcard ? `<div class="s2-sec"><h3>어휘 · 본문</h3></div>${vcard}${pcard}` : '';
+  shell(`${hero}${nowCard}${vp}
     <div class="s2-sec"><h3>오늘의 미션</h3><span>${todo.length}개 남음</span></div>
     ${todo.map(mCard).join('') || '<div class="card s2-done">남은 미션이 없어요. 원장님이 새 단원을 배정하면 여기에 나타나요.</div>'}
     <div class="s2-sec"><h3>바로 가기</h3></div>${tiles}
@@ -152,6 +155,8 @@ function studentHome() {
   document.querySelectorAll('[data-mu]').forEach(el => el.onclick = () => unitView(el.dataset.mu));
   const on = (id, f) => { const e = document.getElementById(id); if (e) e.onclick = f; };
   on('t-lib', () => libView()); on('t-wr', () => wrongNote()); on('t-pr', () => wrongPrintStudent()); on('t-nh', () => naesinHub());
+  if (typeof bindVocabHome === 'function') bindVocabHome();
+  if (typeof bindPassageHome === 'function') bindPassageHome();
 }
 
 /* 영상·개념을 열면 '봤음'으로 표시해요 */

@@ -1,13 +1,13 @@
-/* 심쿵영어 문법 학습 - 원장님 화면 */
+/* 심쿵영어 어휘·문법 학습 - 원장님 화면 */
 'use strict';
 
 const T = { students: [], asg: [], units: [], questions: [], attempts: [], notes: [], keys: {}, tab: 'today', ch: null, live: false, timer: null, poll: null, lastLoad: null };
 // 단원 이름 앞에 교재·학년을 붙여 보여 줘요 (예: 동아(윤정미) 중3 · 5과 문법…)
 function unitLabel(u) { return u ? (u.school_book ? u.school_book + ' · ' : '') + u.title : ''; }
 const MIN_OVERALL = 5, MIN_STAGE = 3, MIN_TAG = 2;   // 이보다 적으면 "평가 자료 부족"
-const TAB_ICON = {"today": "<rect x=\"3\" y=\"3\" width=\"7\" height=\"9\" rx=\"1.5\"/><rect x=\"14\" y=\"3\" width=\"7\" height=\"5\" rx=\"1.5\"/><rect x=\"14\" y=\"12\" width=\"7\" height=\"9\" rx=\"1.5\"/><rect x=\"3\" y=\"16\" width=\"7\" height=\"5\" rx=\"1.5\"/>", "review": "<path d=\"M9 12l2 2 4-4\"/><circle cx=\"12\" cy=\"12\" r=\"9\"/>", "assign": "<rect x=\"5\" y=\"4\" width=\"14\" height=\"17\" rx=\"2\"/><path d=\"M9 4h6v3H9zM9 12h6M9 16h4\"/>", "students": "<path d=\"M4 20V10M10 20V4M16 20v-7M22 20H2\"/>", "questions": "<path d=\"M4 5a2 2 0 012-2h13v16H6a2 2 0 00-2 2zM4 19a2 2 0 012-2h13\"/>", "accounts": "<circle cx=\"9\" cy=\"8\" r=\"3.5\"/><path d=\"M2.5 20c0-3.600 2.900-6 6.500-6s6.500 2.400 6.500 6M16 4.500a3.500 3.500 0 010 7M18 14c2.200.6 3.500 2.600 3.500 6\"/>", "ai": "<path d=\"M12 3l1.800 5.200L19 10l-5.200 1.800L12 17l-1.800-5.200L5 10l5.200-1.800zM19 16l.8 2.200L22 19l-2.200.8L19 22l-.8-2.200L16 19l2.200-.8z\"/>", "settings": "<circle cx=\"12\" cy=\"12\" r=\"3\"/><path d=\"M19.400 15a1.700 1.700 0 00.3 1.800l.1.1a2 2 0 11-2.800 2.800l-.1-.1a1.700 1.700 0 00-1.800-.3 1.700 1.700 0 00-1 1.500V21a2 2 0 11-4 0v-.1a1.700 1.700 0 00-1.100-1.500 1.700 1.700 0 00-1.800.3l-.1.1a2 2 0 11-2.800-2.800l.1-.1a1.700 1.700 0 00.3-1.800 1.700 1.700 0 00-1.500-1H3a2 2 0 110-4h.1a1.700 1.700 0 001.500-1.100 1.700 1.700 0 00-.3-1.800l-.1-.1a2 2 0 112.800-2.800l.1.100a1.700 1.700 0 001.800.3H9a1.700 1.700 0 001-1.500V3a2 2 0 114 0v.1a1.700 1.700 0 001 1.500 1.700 1.700 0 001.800-.3l.1-.1a2 2 0 112.800 2.800l-.1.1a1.700 1.700 0 00-.3 1.800V9a1.700 1.700 0 001.500 1H21a2 2 0 110 4h-.1a1.700 1.700 0 00-1.500 1z\"/>"};
+const TAB_ICON = {"naesin": "<path d=\"M4 4h10a4 4 0 014 4v12H8a4 4 0 01-4-4z\"/><path d=\"M8 9h6M8 13h6M8 17h3\"/>", "vocab": "<path d=\"M3 19l5-14 5 14M5 14h6\"/><path d=\"M15 10.500c.7-.9 1.700-1.500 3-1.500 2 0 3 1.200 3 3v7M21 15c-1-.4-2-.5-3-.5-1.800 0-3 .9-3 2.300 0 1.300 1 2.200 2.500 2.200 1.500 0 2.800-.8 3.500-2\"/>", "today": "<rect x=\"3\" y=\"3\" width=\"7\" height=\"9\" rx=\"1.5\"/><rect x=\"14\" y=\"3\" width=\"7\" height=\"5\" rx=\"1.5\"/><rect x=\"14\" y=\"12\" width=\"7\" height=\"9\" rx=\"1.5\"/><rect x=\"3\" y=\"16\" width=\"7\" height=\"5\" rx=\"1.5\"/>", "review": "<path d=\"M9 12l2 2 4-4\"/><circle cx=\"12\" cy=\"12\" r=\"9\"/>", "assign": "<rect x=\"5\" y=\"4\" width=\"14\" height=\"17\" rx=\"2\"/><path d=\"M9 4h6v3H9zM9 12h6M9 16h4\"/>", "students": "<path d=\"M4 20V10M10 20V4M16 20v-7M22 20H2\"/>", "questions": "<path d=\"M4 5a2 2 0 012-2h13v16H6a2 2 0 00-2 2zM4 19a2 2 0 012-2h13\"/>", "accounts": "<circle cx=\"9\" cy=\"8\" r=\"3.5\"/><path d=\"M2.5 20c0-3.600 2.900-6 6.500-6s6.500 2.400 6.500 6M16 4.500a3.500 3.500 0 010 7M18 14c2.200.6 3.500 2.600 3.500 6\"/>", "ai": "<path d=\"M12 3l1.800 5.200L19 10l-5.200 1.800L12 17l-1.800-5.200L5 10l5.200-1.800zM19 16l.8 2.200L22 19l-2.200.8L19 22l-.8-2.200L16 19l2.200-.8z\"/>", "settings": "<circle cx=\"12\" cy=\"12\" r=\"3\"/><path d=\"M19.400 15a1.700 1.700 0 00.3 1.800l.1.1a2 2 0 11-2.800 2.800l-.1-.1a1.700 1.700 0 00-1.800-.3 1.700 1.700 0 00-1 1.500V21a2 2 0 11-4 0v-.1a1.700 1.700 0 00-1.100-1.500 1.700 1.700 0 00-1.800.3l-.1.1a2 2 0 11-2.800-2.800l.1-.1a1.700 1.700 0 00.3-1.800 1.700 1.700 0 00-1.500-1H3a2 2 0 110-4h.1a1.700 1.700 0 001.500-1.100 1.700 1.700 0 00-.3-1.800l-.1-.1a2 2 0 112.800-2.800l.1.100a1.700 1.700 0 001.800.3H9a1.700 1.700 0 001-1.500V3a2 2 0 114 0v.1a1.700 1.700 0 001 1.500 1.700 1.700 0 001.800-.3l.1-.1a2 2 0 112.800 2.800l-.1.1a1.700 1.700 0 00-.3 1.800V9a1.700 1.700 0 001.500 1H21a2 2 0 110 4h-.1a1.700 1.700 0 00-1.500 1z\"/>"};
 const tabIcon = k => `<svg class="ti" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${TAB_ICON[k] || ''}</svg>`;
-const TABS = [['today', '오늘 현황'], ['review', '채점 대기'], ['assign', '과제 배정'], ['students', '학생·리포트'], ['questions', '문항 관리'], ['accounts', '학생 관리'], ['ai', 'AI 사용·설정'], ['settings', '설정·내보내기']];
+const TABS = [['today', '오늘 현황'], ['vocab', '어휘'], ['naesin', '내신 본문'], ['review', '채점 대기'], ['assign', '과제 배정'], ['students', '학생·리포트'], ['questions', '문항 관리'], ['accounts', '학생 관리'], ['ai', 'AI 사용·설정'], ['settings', '설정·내보내기']];
 
 async function loadTeacher() {
   const sb = S.sb;
@@ -115,7 +115,7 @@ function drawTeacher() {
 }
 function reviewBadge() { const n = T.attempts.filter(a => a.status === 'needs_review').length; return n ? ` <span class="badge bad">${n}</span>` : ''; }
 function renderTab() {
-  const f = { today: tabToday, review: tabReview, assign: tabAssign, students: tabStudents, questions: tabQuestions, videos: (typeof tabVideos === 'function' ? tabVideos : tabToday), accounts: tabAccounts, ai: tabAI, settings: tabSettings }[T.tab];
+  const f = { today: tabToday, vocab: tabVocab, naesin: tabPassage, review: tabReview, assign: tabAssign, students: tabStudents, questions: tabQuestions, videos: (typeof tabVideos === 'function' ? tabVideos : tabToday), accounts: tabAccounts, ai: tabAI, settings: tabSettings }[T.tab];
   Promise.resolve(f()).catch(e => { $('#tb').innerHTML = `<div class="result bad">${esc(errText(e))}</div>`; });
 }
 function setLive(on) {
@@ -135,7 +135,7 @@ function subscribeRealtime() {
 function refreshSoon() {
   clearTimeout(T.timer);
   T.timer = setTimeout(async () => {
-    if (document.querySelector('.modal-bg') || ['assign', 'questions', 'videos', 'accounts', 'ai', 'settings'].includes(T.tab)) return;
+    if (document.querySelector('.modal-bg') || ['vocab', 'naesin', 'assign', 'questions', 'videos', 'accounts', 'ai', 'settings'].includes(T.tab)) return;
     if (T.tab === 'students' && T.view) return;          // 리포트·상세를 보는 중이면 방해하지 않아요
     if (document.activeElement && ['TEXTAREA', 'INPUT'].includes(document.activeElement.tagName)) return;
     try { await loadTeacher(); drawTeacher(); } catch (e) { /* 다음 번에 다시 시도 */ }
