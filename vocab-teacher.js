@@ -108,7 +108,6 @@ function vtNow() {
       <div class="kpi ${dueAll > 100 ? 'alert' : ''}"><small>밀린 복습</small><b>${dueAll}<em>개</em></b><span>오늘까지 다시 봐야 할 단어</span></div>
       <div class="kpi"><small>배정 학생</small><b>${rows.length}<em>명</em></b><span>오늘 미학습 ${rows.length - active}명</span></div>
     </section>
-    ${weak ? `<div class="card"><h3 style="margin:0 0 8px">최근 30일 자주 틀리는 단어</h3><div class="wchips">${weak}</div><p class="tiny" style="margin-top:8px">숫자는 틀린 횟수예요. 수업 시작 5분 퀴즈로 쓰기 좋아요.</p></div>` : ''}
     <section class="sgrid">${cards || `<div class="card">아직 단어장을 배정한 학생이 없어요. <b>배정</b>에서 학생에게 단어장을 배정해 주세요.</div>`}</section>`;
   document.querySelectorAll('[data-vstu]').forEach(el => el.onclick = () => vtStudent(el.dataset.vstu));
 }

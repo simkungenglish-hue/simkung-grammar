@@ -9,9 +9,17 @@ function vPrevReview(unitId) {
   const pu = vPrevUnit(unitId), a = vAsgOfUnit(unitId);
   if (!pu || !a) { AT.start(); return vLook(unitId, vItems(unitId)); }
   const cfg = vCfg(a), items = vItems(pu.id);
-  const boxOf = it => { const r = VS.srs.find(x => x.item_id === it.id); return r ? r.box : 0; };
   const n = Math.max(3, Math.min(cfg.prev_n || 10, items.length));
-  const pick = shuffle(shuffle(items).sort((x, y) => boxOf(x) - boxOf(y)).slice(0, n));   // 아직 약한 단어를 먼저 뽑아요
+  // 이 학생이 앞에서 틀렸고 아직 약한 단어(복습 상자 1~2칸)를 먼저 넣어요. 오답이 없으면 앞 유닛에서 무작위로 뽑아요.
+  const weakOf = it => { const r = VS.srs.find(x => x.item_id === it.id); return !!r && (r.wrong_n || 0) > 0 && r.box <= 2; };
+  const ul = vUnitList(a), ui = ul.findIndex(u => u.id === unitId);
+  const earlier = []; for (let k = ui - 1; k >= 0; k--) if (ul[k].id !== pu.id) earlier.push(...vItems(ul[k].id));
+  const picked = [], seen = new Set();
+  const add = arr => { for (const it of arr) { if (picked.length >= n) break; if (!seen.has(it.id)) { seen.add(it.id); picked.push(it); } } };
+  add(shuffle(items.filter(weakOf)));      // 1) 바로 앞 유닛의 오답
+  add(shuffle(earlier.filter(weakOf)));    // 2) 그 전 유닛들의 오답
+  add(shuffle(items));                     // 3) 나머지는 앞 유닛에서 무작위
+  const pick = shuffle(picked);
   const list = pick.map((it, k) => ({ it, dir: k % 2 ? 'en' : 'ko', mode: 'choice' }));
   AT.start();
   const runId = uuid();
@@ -21,7 +29,7 @@ function vPrevReview(unitId) {
       if (!(await vStepDone(unitId, 'prev', ok, pick.length))) return;
       const wrong = [...res.values()].filter(r => !r.ok);
       shell(`<div class="card vend"><div class="vend-ic">🔁</div><h2>앞 복습 끝!</h2>
-        <p class="clock big">${ok} / ${pick.length}</p><p class="muted">${esc(vUnitName(pu))}에서 맞힌 단어</p>
+        <p class="clock big">${ok} / ${pick.length}</p><p class="muted">앞에서 배운 단어 중 맞힌 개수</p>
         ${wrong.length ? `<div class="wlist"><div class="tiny">다시 확인할 단어 (내일 복습에도 나와요)</div>${wrong.map(w => `<div class="wrow"><b>${esc(w.it.word)}</b> ${vSpk(w.it.word)}<span>${esc(w.it.meaning)}</span></div>`).join('')}</div>` : '<p>모두 기억하고 있어요! 👏</p>'}
         <div class="row" style="justify-content:center;margin-top:12px"><button class="btn" id="go">${esc(vUnitName(vUnit(unitId)))} 학습 시작</button><button class="btn ghost" id="uh">유닛으로</button></div></div>`);
       vBindSpk();
