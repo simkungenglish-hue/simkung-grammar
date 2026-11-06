@@ -7,7 +7,7 @@ const VX = { cur: null };
 /* ---------- 앞 유닛 복습: 1복습 → 2학습, 2복습 → 3학습 ---------- */
 function vPrevReview(unitId) {
   const pu = vPrevUnit(unitId), a = vAsgOfUnit(unitId);
-  if (!pu || !a) { AT.start(); return vLook(unitId, vItems(unitId)); }
+  if (!pu || !a) return vRunStep(unitId, vFirstStep(unitId));
   const cfg = vCfg(a), items = vItems(pu.id);
   const n = Math.max(3, Math.min(cfg.prev_n || 10, items.length));
   // 이 학생이 앞에서 틀렸고 아직 약한 단어(복습 상자 1~2칸)를 먼저 넣어요. 오답이 없으면 앞 유닛에서 무작위로 뽑아요.
@@ -33,7 +33,7 @@ function vPrevReview(unitId) {
         ${wrong.length ? `<div class="wlist"><div class="tiny">다시 확인할 단어 (내일 복습에도 나와요)</div>${wrong.map(w => `<div class="wrow"><b>${esc(w.it.word)}</b> ${vSpk(w.it.word)}<span>${esc(w.it.meaning)}</span></div>`).join('')}</div>` : '<p>모두 기억하고 있어요! 👏</p>'}
         <div class="row" style="justify-content:center;margin-top:12px"><button class="btn" id="go">${esc(vUnitName(vUnit(unitId)))} 학습 시작</button><button class="btn ghost" id="uh">유닛으로</button></div></div>`);
       vBindSpk();
-      $('#go').onclick = () => vStartStep(unitId, 'look');
+      $('#go').onclick = () => vRunStep(unitId, vFirstStep(unitId));
       $('#uh').onclick = () => vUnitHome(unitId);
     } });
 }
@@ -91,10 +91,12 @@ function vExtra(unitId, kind, items) {
   const fin = async () => {
     const done = await vStepDone(unitId, kind, ok, list.length);
     if (!done) return;
+    const sl = vStepList(vAsgOfUnit(unitId)), si = sl.findIndex(x => x[0] === kind), nextK = si >= 0 && sl[si + 1] ? sl[si + 1][0] : null;
     shell(`<div class="card vend"><div class="vend-ic">${V_ICON[kind]}</div><h2>${esc(V_STEP_NAME[kind])} 끝!</h2>
       <p class="clock big">${ok} / ${list.length}</p><p class="muted">맞힌 문제</p>
       ${wrong.length ? `<div class="wlist"><div class="tiny">틀린 문제</div>${wrong.map(w => `<div class="wrow"><b>${esc(w.word)}</b><span>${esc(kind === 'pos' ? w.pos_list.join('·') : w.sent_answer)}</span></div>`).join('')}</div>` : ''}
-      <div class="row" style="justify-content:center;margin-top:12px"><button class="btn" id="uh">유닛으로</button></div></div>`);
+      <div class="row" style="justify-content:center;margin-top:12px">${nextK ? '<button class="btn" id="nx2">다음 단계로</button>' : ''}<button class="btn ${nextK ? 'ghost' : ''}" id="uh">유닛으로</button></div></div>`);
+    if ($('#nx2')) $('#nx2').onclick = () => vStartStep(unitId, nextK);
     $('#uh').onclick = () => vUnitHome(unitId);
   };
   AT.start(); draw();

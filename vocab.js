@@ -29,6 +29,7 @@ function vCfg(a) {
   const bk = a && typeof vBook === 'function' ? vBook(a.book_id) : null, school = !!(bk && bk.kind === 'school');
   return { pass_pct: s.pass_pct ?? 90, first_letter: !!s.first_letter, units_per_day: s.units_per_day ?? (school ? 0 : 1), review_cap: s.review_cap ?? 40, speak: s.speak !== false,
     prev_review: s.prev_review !== false, prev_n: s.prev_n ?? 10,
+    steps: Array.isArray(s.steps) && s.steps.length ? s.steps : null,   // 원장님이 학생·교재별로 고른 학습 단계 (없으면 기본 5단계 + 테스트)
     sequential: s.sequential ?? !school, only: Array.isArray(s.only) && s.only.length ? s.only.map(Number) : null };
 }
 function vBookLabel(bk) {
@@ -185,14 +186,24 @@ function vPrevUnit(unitId) {
   for (let k = i - 1; k >= 0; k--) if (VS.prog.some(x => x.unit_id === list[k].id && x.step !== 'prev') && vItems(list[k].id).length >= 3) return list[k];
   return null;
 }
-const vPrevNeeded = unitId => !!vPrevUnit(unitId) && !vProg(unitId, 'prev') && !vProg(unitId, 'look');
-function vStepOpen(unitId, step) {
-  const i = V_STEPS.findIndex(s => s[0] === step);
-  if (i === 0) return !vPrevNeeded(unitId);
-  if (i <= 0) return true;
-  if (step === 'test') return !!vProg(unitId, 'match') || !!vProg(unitId, 'test');
-  return !!vProg(unitId, V_STEPS[i - 1][0]);
+// 이 학생·교재에서 해야 하는 학습 단계. 원장님이 고른 단계만, 순서는 고정, 유닛 테스트는 늘 마지막에 있어요.
+function vStepList(a) {
+  const cfg = vCfg(a), test = V_STEPS.find(s => s[0] === 'test');
+  if (!cfg.steps) return V_STEPS.slice();
+  const core = V_STEPS.filter(s => s[0] !== 'test' && cfg.steps.includes(s[0])), ext = V_EXTRA.filter(s => cfg.steps.includes(s[0]));
+  return [...core, ...ext, test];
 }
+const vFirstStep = unitId => { const a = vAsgOfUnit(unitId); return vStepList(a)[0][0]; };
+const vPrevNeeded = unitId => !!vPrevUnit(unitId) && !vProg(unitId, 'prev') && !VS.prog.some(x => x.unit_id === unitId && x.step !== 'prev');
+function vStepOpen(unitId, step) {
+  const a = vAsgOfUnit(unitId), list = vStepList(a), i = list.findIndex(s => s[0] === step);
+  if (i < 0) return false;
+  if (i === 0) return !vPrevNeeded(unitId);
+  if (step === 'test') return !!vProg(unitId, 'test') || !!vProg(unitId, list[i - 1][0]);
+  return !!vProg(unitId, list[i - 1][0]);
+}
+// 오늘 유닛 테스트를 통과했으면 게임이 열려요
+const vPassedToday = () => VS.ustat.some(s => s.passed_at && kstDay(s.passed_at) === kstToday());
 
 /* ---------- 홈에 들어가는 어휘 카드 ---------- */
 function vocabHomeCard() {
@@ -255,7 +266,8 @@ function vocabHome() {
 function vUnitHome(unitId) {
   const u = vUnit(unitId), a = vAsgOfUnit(unitId); if (!u || !a) return vocabHome();
   const items = vItems(unitId), st = vStat(unitId);
-  const rows = V_STEPS.map(([k, n, d]) => {
+  const stepList = vStepList(a), custom = !!vCfg(a).steps;
+  const rows = stepList.map(([k, n, d]) => {
     const p = vProg(unitId, k), open = vStepOpen(unitId, k);
     let badge = '';
     if (p) badge = k === 'test' ? (st && st.passed_at ? `<span class="badge ok">통과 ${st.best_pct}%</span>` : `<span class="badge bad">${st ? st.last_pct : 0}% · 다시 도전</span>`)
@@ -268,7 +280,7 @@ function vUnitHome(unitId) {
   const prevRow = pu ? `<div class="vstep ${pp ? 'done' : ''}"><div class="vs-ic">${V_ICON.prev}</div><div class="vs-t"><b>앞 유닛 복습 · ${esc(vUnitName(pu))}</b><div class="tiny">앞에서 배운 단어를 가볍게 복습하고 시작해요</div>${pp ? `<span class="badge ok">✓ ${pp.score}/${pp.total}</span>` : '<span class="badge gray">먼저 하기</span>'}</div>
       <button class="btn small ${pp ? 'ghost' : ''}" data-step="prev">${pp ? '다시' : '시작'}</button></div>` : '';
   const hasPos = items.some(i => (i.pos_list || []).length), hasSent = items.some(i => i.sent_blank && i.sent_answer);
-  const extraRows = V_EXTRA.filter(([k]) => k === 'pos' ? hasPos : hasSent).map(([k, n, d]) => {
+  const extraRows = custom ? '' : V_EXTRA.filter(([k]) => k === 'pos' ? hasPos : hasSent).map(([k, n, d]) => {
     const p = vProg(unitId, k);
     return `<div class="vstep ${p ? 'done' : ''}"><div class="vs-ic">${V_ICON[k]}</div><div class="vs-t"><b>${n} <span class="tiny">(선택)</span></b><div class="tiny">${d}</div>${p ? `<span class="badge ok">✓ ${p.score}/${p.total}</span>` : ''}</div>
       <button class="btn small ${p ? 'ghost' : ''}" data-step="${k}">${p ? '다시' : '시작'}</button></div>`;
@@ -276,14 +288,18 @@ function vUnitHome(unitId) {
   shell(`<p><a href="#" id="back">← 어휘 홈</a></p>
     <h1>${esc(vUnitName(u))} <span class="tiny">${items.length}개</span></h1>
     <div class="card"><div class="vsteps">${prevRow}${rows}${extraRows}</div>
-    <p class="tiny" style="margin-top:10px">테스트에서 ${vCfg(a).pass_pct}% 이상 맞히면 통과예요.</p></div>`);
+    <p class="tiny" style="margin-top:10px">테스트에서 ${vCfg(a).pass_pct}% 이상 맞히면 통과예요. 통과하면 🎮 게임이 열려요!</p></div>`);
   $('#back').onclick = e => { e.preventDefault(); vocabHome(); };
   document.querySelectorAll('[data-step]').forEach(b => b.onclick = () => vStartStep(unitId, b.dataset.step));
 }
 function vStartStep(unitId, step) {
   const items = vItems(unitId);
   if (!items.length) return toast('아직 단어가 없어요');
-  if (step === 'look' && vPrevNeeded(unitId)) return vPrevReview(unitId);
+  if (step === vFirstStep(unitId) && vPrevNeeded(unitId)) return vPrevReview(unitId);
+  vRunStep(unitId, step, items);
+}
+function vRunStep(unitId, step, items) {
+  items = items || vItems(unitId);
   AT.start();
   ({ look: vLook, memorize: vMemo, check: vCheck, write: vWrite, match: vMatch, test: vTest, prev: () => vPrevReview(unitId), pos: () => vExtra(unitId, 'pos', items), sent: () => vExtra(unitId, 'sent', items) })[step](unitId, items);
 }
@@ -310,7 +326,7 @@ function vBindSpk() { document.querySelectorAll('[data-say]').forEach(b => b.onc
 function vStepEnd(unitId, step, html) {
   shell(`<div class="card vend"><div class="vend-ic">${V_ICON[step]}</div><h2>${V_STEP_NAME[step]} 끝!</h2>${html}
     <div class="row" style="justify-content:center;margin-top:12px"><button class="btn" id="nx">다음 단계로</button><button class="btn ghost" id="uh">유닛으로</button></div></div>`);
-  const i = V_STEPS.findIndex(s => s[0] === step), next = V_STEPS[i + 1];
+  const sl = vStepList(vAsgOfUnit(unitId)), i = sl.findIndex(s => s[0] === step), next = sl[i + 1];
   $('#nx').onclick = () => next ? vStartStep(unitId, next[0]) : vUnitHome(unitId);
   if (!next) $('#nx').textContent = '유닛으로';
   $('#uh').onclick = () => vUnitHome(unitId);

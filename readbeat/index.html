@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>READ &amp; BEAT</title>
+<style>
+  @import url('fonts/fonts.css');
+  :root{
+    --l1:#ff3d9a; --l2:#22e3ff; --l3:#ffd23f; --l4:#5dff7a;
+    --bg1:#0b0420; --bg2:#25105a; --ink:#fff;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{width:100%;height:100%;background:#000;overflow:hidden;font-family:'Fredoka','Black Han Sans',sans-serif;color:var(--ink)}
+  #switch{position:fixed;top:8px;left:50%;transform:translateX(-50%);z-index:10;display:flex;gap:6px}
+  #switch button{font:600 14px 'Fredoka',sans-serif;padding:6px 12px;border-radius:8px;border:1px solid #555;background:#1a1a2a;color:#ccc;cursor:pointer}
+  #switch button.on{background:#ff3d9a;color:#fff;border-color:#ff3d9a}
+  #stage{position:absolute;left:0;top:0;width:1920px;height:1080px;transform-origin:0 0;overflow:hidden;
+    background:radial-gradient(ellipse at 50% 110%,#5b1fa8 0%,var(--bg2) 35%,var(--bg1) 75%)}
+
+  /* 바닥 원근 그리드 */
+  .floor{position:absolute;left:-20%;right:-20%;bottom:-10%;height:55%;
+    background:
+      repeating-linear-gradient(90deg,rgba(255,61,154,.35) 0 2px,transparent 2px 120px),
+      repeating-linear-gradient(0deg,rgba(34,227,255,.35) 0 2px,transparent 2px 80px);
+    transform:perspective(500px) rotateX(62deg);transform-origin:50% 100%;
+    animation:floor 0.6s linear infinite;mask-image:linear-gradient(to top,#000 30%,transparent)}
+  @keyframes floor{to{background-position:0 0,0 80px}}
+  .spot{position:absolute;top:-200px;width:420px;height:1300px;opacity:.18;filter:blur(8px);
+    background:linear-gradient(to bottom,#fff,transparent 80%);clip-path:polygon(45% 0,55% 0,100% 100%,0 100%)}
+  .spot.a{left:120px;transform:rotate(18deg);animation:sway 4s ease-in-out infinite alternate}
+  .spot.b{right:120px;transform:rotate(-18deg);animation:sway 4s ease-in-out infinite alternate-reverse}
+  @keyframes sway{to{transform:rotate(-10deg)}}
+
+  /* 상단 HUD */
+  .hud{position:absolute;top:24px;left:40px;right:40px;height:110px;display:flex;align-items:center;gap:28px}
+  .song{display:flex;align-items:center;gap:18px;background:rgba(0,0,0,.45);border:2px solid rgba(255,255,255,.15);border-radius:20px;padding:12px 24px 12px 12px}
+  .jacket{width:84px;height:84px;border-radius:14px;background:linear-gradient(135deg,var(--l1),var(--l3));display:grid;place-items:center;font:700 40px 'Fredoka'}
+  .song .u{font-size:22px;color:#ffd23f;letter-spacing:2px}
+  .song .t{font-size:40px;font-weight:700;line-height:1.05}
+  .energy{flex:1}
+  .energy .lab{font-size:22px;letter-spacing:3px;color:#bfe9ff;margin-bottom:8px}
+  .bar{height:30px;border-radius:15px;background:rgba(255,255,255,.12);overflow:hidden;border:2px solid rgba(255,255,255,.25)}
+  .bar i{display:block;height:100%;width:100%;transition:width .2s;background:linear-gradient(90deg,var(--l4),var(--l2));box-shadow:0 0 18px var(--l2)}
+  .score{text-align:right;min-width:330px}
+  .score .lab{font-size:22px;letter-spacing:3px;color:#ffc1e1}
+  .score .v{font:700 64px 'Fredoka';text-shadow:0 0 18px var(--l1)}
+
+  /* 스테이지 진행 */
+  .steps{position:absolute;top:132px;left:50%;transform:translateX(-50%);display:flex;gap:10px}
+  .steps span{cursor:pointer;font-size:22px;padding:6px 18px;border-radius:999px;background:rgba(255,255,255,.08);color:#aaa;border:2px solid transparent}
+  .steps span.on{background:rgba(255,61,154,.25);border-color:var(--l1);color:#fff}
+  .steps span.done{color:#5dff7a}
+
+  /* 문제 배너 */
+  .prompt{position:absolute;top:208px;left:50%;transform:translateX(-50%);width:1120px;min-height:100px;z-index:2;
+    background:rgba(10,5,35,.82);border:3px solid rgba(255,255,255,.25);border-radius:28px;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px 30px;
+    box-shadow:0 0 40px rgba(255,61,154,.35)}
+  .prompt .hint{font-size:24px;color:#bfe9ff;letter-spacing:2px}
+  .prompt .q{font-family:'Black Han Sans','Fredoka';font-size:60px;line-height:1.15}
+  .prompt .q.en{font-family:'Fredoka';font-weight:700;font-size:60px}
+  .blank{display:inline-block;min-width:200px;border-bottom:6px solid var(--l3);color:var(--l3);text-align:center}
+  .slots{display:flex;gap:14px;margin-top:6px}
+  .slots b{min-width:120px;padding:4px 16px;border-radius:14px;border:3px dashed rgba(255,255,255,.35);font:700 46px 'Fredoka';text-align:center;color:transparent}
+  .slots b.f{border:3px solid var(--l4);color:#fff;background:rgba(93,255,122,.15)}
+
+  /* 레인 */
+  .lanes{position:absolute;left:50%;transform:translateX(-50%);top:300px;width:1120px;height:780px;display:flex;gap:12px;
+    mask-image:linear-gradient(to bottom,transparent 0,#000 12%)}
+  .lane{flex:1;position:relative;cursor:pointer;background:linear-gradient(to bottom,rgba(255,255,255,.02),rgba(255,255,255,.08));border-left:2px solid rgba(255,255,255,.08);border-right:2px solid rgba(255,255,255,.08)}
+  .judge{position:absolute;left:50%;transform:translateX(-50%) scaleY(calc(1 + .8*var(--p)));top:960px;width:1150px;height:10px;border-radius:5px;background:#fff;box-shadow:0 0 calc(18px + 30px*var(--p)) #fff,0 0 calc(40px + 70px*var(--p)) var(--l1),0 0 calc(60px + 90px*var(--p)) var(--l2)}
+  .keys{position:absolute;left:50%;transform:translateX(-50%);top:984px;width:1120px;display:flex;gap:12px}
+  .keys div{flex:1;height:76px;border-radius:18px;display:grid;place-items:center;font:700 44px 'Fredoka';color:#0b0420;transition:filter .1s}
+  .keys div{cursor:pointer}
+  .keys div.hit{filter:brightness(1.6) drop-shadow(0 0 24px #fff)}
+  .note{position:absolute;left:8px;right:8px;height:96px;border-radius:22px;display:grid;place-items:center;
+    font:700 50px 'Fredoka';color:#0b0420;box-shadow:0 0 26px currentColor;will-change:top}
+  .note span{color:#0b0420}
+
+  /* 좌우 패널 */
+  .dancer{position:absolute;left:10px;bottom:30px;width:380px;height:860px}
+  .dancer canvas{width:100%;height:100%;display:block}
+  @keyframes bounce{from{transform:translateY(0) rotate(-3deg)}to{transform:translateY(-22px) rotate(3deg)}}
+  .dancer .name{position:absolute;bottom:-6px;left:0;right:0;text-align:center;font:700 30px 'Fredoka';color:#ffd23f;text-shadow:0 0 12px #ff3d9a}
+  .side{position:absolute;right:50px;top:380px;width:300px;text-align:center}
+  .combo .n{font:700 150px/1 'Fredoka';background:linear-gradient(#fff,#ffd23f);-webkit-background-clip:text;color:transparent;filter:drop-shadow(0 0 16px #ff3d9a)}
+  .combo .l{font-size:36px;letter-spacing:8px;color:#ffc1e1}
+  .fever{margin-top:40px}
+  .fever .lab{font-size:24px;letter-spacing:4px;color:#ffd23f}
+  .fever .bar i{width:60%;background:linear-gradient(90deg,#ffd23f,#ff3d9a)}
+  .teach{margin-top:40px;background:rgba(0,0,0,.45);border-radius:16px;padding:14px;font-size:22px;color:#ccc;line-height:1.6;text-align:left}
+  .teach b{color:#fff}
+
+  .jtext{position:absolute;left:50%;top:780px;transform:translateX(-50%) scale(.6);font:700 96px 'Fredoka';opacity:0;pointer-events:none;letter-spacing:4px}
+  .jtext.show{animation:pop .5s ease-out}
+  @keyframes pop{0%{opacity:0;transform:translateX(-50%) scale(.6)}30%{opacity:1;transform:translateX(-50%) scale(1.15)}100%{opacity:0;transform:translateX(-50%) translateY(-50px) scale(1)}}
+
+  /* 챈트 */
+  .chant{position:absolute;left:50%;top:380px;transform:translateX(-50%);width:1120px;text-align:center;display:none}
+  .turn{display:inline-flex;gap:14px;margin-bottom:30px}
+  .turn span{font:700 40px 'Fredoka';padding:10px 34px;border-radius:999px;background:rgba(255,255,255,.08);color:#888}
+  .turn span.on{background:var(--l1);color:#fff;box-shadow:0 0 30px var(--l1)}
+  .turn span.you.on{background:var(--l2);color:#0b0420;box-shadow:0 0 30px var(--l2)}
+  .lyric{font:700 80px/1.3 'Fredoka';margin:12px 0}
+  .lyric .sung{color:var(--l3);text-shadow:0 0 18px var(--l1)}
+  .lyric.next{font-size:48px;color:#8d83b8}
+  .beats{display:flex;justify-content:center;gap:22px;margin-top:40px}
+  .beats i{width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,.15)}
+  .beats i.on{background:var(--l2);box-shadow:0 0 22px var(--l2)}
+  .ox{display:flex;justify-content:center;gap:40px;margin-top:50px}
+  .ox div{cursor:pointer;user-select:none;transition:transform .08s;width:340px;height:120px;border-radius:24px;display:grid;place-items:center;font:700 60px 'Fredoka';border:4px solid}
+  /* 곡 선택 화면 */
+  #select{position:absolute;inset:0;z-index:5;padding:60px 90px;
+    background:radial-gradient(ellipse at 50% 120%,#5b1fa8 0%,#25105a 40%,#0b0420 80%)}
+  #select h1{margin-bottom:40px;font:700 92px/1 'Fredoka';text-align:center;letter-spacing:6px;
+    background:linear-gradient(90deg,#ff3d9a,#ffd23f,#22e3ff);-webkit-background-clip:text;color:transparent;filter:drop-shadow(0 0 20px rgba(255,61,154,.6))}
+  #select .sub{text-align:center;font-size:30px;color:#bfe9ff;margin:10px 0 34px;letter-spacing:3px}
+  .books{display:flex;justify-content:center;gap:24px;margin-bottom:36px}
+  .books button{font:700 44px 'Black Han Sans','Fredoka';padding:14px 56px;border-radius:999px;border:4px solid rgba(255,255,255,.25);
+    background:rgba(255,255,255,.06);color:#bbb;cursor:pointer}
+  .books button.on{background:#ff3d9a;border-color:#ff3d9a;color:#fff;box-shadow:0 0 40px #ff3d9a}
+  .units{display:grid;grid-template-columns:repeat(4,1fr);gap:22px}
+  .ucard{background:rgba(10,5,35,.8);border:3px solid rgba(255,255,255,.15);border-radius:24px;padding:16px 22px;cursor:pointer;
+    display:flex;gap:18px;align-items:center;transition:transform .15s,border-color .15s}
+  .ucard:hover{transform:scale(1.04);border-color:#ffd23f;box-shadow:0 0 30px rgba(255,210,63,.5)}
+  .ucard .num{min-width:86px;height:86px;border-radius:18px;display:grid;place-items:center;font:700 44px 'Fredoka';color:#0b0420}
+  .ucard .tt{font:700 34px/1.1 'Fredoka';color:#fff}
+  .ucard .sj{font-size:20px;color:#bfe9ff;margin-top:6px}
+  /* 빛 효과: --p 는 박자마다 1→0 으로 줄어드는 값 */
+  #stage{--p:0}
+  .spot{opacity:calc(.12 + .3*var(--p))}
+  .floor{filter:brightness(calc(1 + 1.2*var(--p)))}
+  .lane{box-shadow:inset 0 -120px 120px -60px rgba(255,255,255,calc(.04 + .12*var(--p)))}
+  .laser{position:absolute;top:-100px;width:14px;height:1400px;border-radius:7px;filter:blur(3px);opacity:.55;mix-blend-mode:screen;transform-origin:50% 0}
+  .laser.l1{left:520px;background:linear-gradient(#ff3d9a,transparent 80%);animation:lz 2.4s ease-in-out infinite alternate}
+  .laser.l2{left:1400px;background:linear-gradient(#22e3ff,transparent 80%);animation:lz 2.4s ease-in-out infinite alternate-reverse}
+  .laser.l3{left:960px;background:linear-gradient(#ffd23f,transparent 80%);animation:lz 3.2s ease-in-out infinite alternate}
+  @keyframes lz{from{transform:rotate(-28deg)}to{transform:rotate(28deg)}}
+  .beam{position:absolute;left:0;right:0;bottom:0;height:100%;opacity:0;pointer-events:none;
+    background:linear-gradient(to top,var(--c) 0%,transparent 75%);mix-blend-mode:screen}
+  .beam.flash{animation:beam .45s ease-out}
+  @keyframes beam{0%{opacity:.9}100%{opacity:0}}
+  .burst{position:absolute;left:50%;top:660px;width:60px;height:60px;margin:-30px 0 0 -30px;border-radius:50%;
+    border:6px solid var(--c);opacity:0;pointer-events:none;box-shadow:0 0 30px var(--c)}
+  .burst.flash{animation:burst .45s ease-out}
+  @keyframes burst{0%{opacity:1;transform:scale(.4)}100%{opacity:0;transform:scale(3.2)}}
+  .spark{position:absolute;top:660px;width:10px;height:10px;border-radius:50%;background:#fff;pointer-events:none;box-shadow:0 0 12px var(--c)}
+  .ox div:active{transform:scale(.95)}
+  .quit{position:absolute;top:30px;right:40px;font:700 28px 'Fredoka','Black Han Sans';padding:10px 26px;border-radius:999px;
+    border:3px solid rgba(255,107,107,.7);background:rgba(255,107,107,.12);color:#ff9b9b;cursor:pointer}
+  .quit:hover{background:#ff6b6b;color:#fff}
+</style>
+</head>
+<body>
+<div id="switch">
+  <button id="toSelect">◀ 곡 선택</button>
+  <button id="quitBtn2">✕ 끝내기</button>
+</div>
+
+<div id="stage">
+  <div id="select">
+    <button id="quitBtn" class="quit">✕ 끝내기</button>
+    <h1>READ &amp; BEAT</h1>
+    <div class="books" id="books"></div>
+    <div class="units" id="units"></div>
+  </div>
+  <div class="spot a"></div><div class="spot b"></div>
+  <div class="laser l1"></div><div class="laser l2"></div><div class="laser l3"></div>
+  <div class="floor"></div>
+
+  <div class="hud">
+    <div class="song"><div class="jacket" id="jk">01</div><div><div class="u" id="uinfo">UNIT 1</div><div class="t" id="utitle"></div></div></div>
+    <div class="energy"><div class="lab">CLASS ENERGY</div><div class="bar"><i id="energyBar"></i></div></div>
+    <div class="score"><div class="lab">SCORE</div><div class="v" id="score">128,400</div></div>
+  </div>
+
+  <div class="steps" id="steps">
+    <span>① 단어 노트</span><span>② 챈트</span><span>③ 빈칸</span><span>④ 문장 순서</span>
+  </div>
+
+  <div class="prompt" id="prompt"></div>
+
+  <div class="lanes" id="lanes">
+    <div class="lane"></div><div class="lane"></div><div class="lane"></div><div class="lane"></div>
+  </div>
+  <div class="judge" id="judge"></div>
+  <div class="keys" id="keys">
+    <div style="background:var(--l1)">1</div><div style="background:var(--l2)">2</div>
+    <div style="background:var(--l3)">3</div><div style="background:var(--l4)">4</div>
+  </div>
+
+  <div class="chant" id="chant">
+    <div class="turn"><span class="cam on">LISTEN ♪</span><span class="you">YOU ♪</span></div>
+    <div class="lyric" id="lyric"></div>
+    <div class="lyric next" id="lyricNext"></div>
+    <div class="beats"><i class="on"></i><i class="on"></i><i></i><i></i></div>
+    <div class="ox">
+      <div id="btnO" style="border-color:var(--l4);color:var(--l4)">O 잘했어!</div>
+      <div id="btnX" style="border-color:#ff6b6b;color:#ff6b6b">X 한 번 더</div>
+    </div>
+  </div>
+
+  <div class="jtext" id="jtext">PERFECT</div>
+
+  <div class="dancer">
+    <canvas id="dancer3d" width="760" height="1720"></canvas>
+    <div class="name"></div>
+  </div>
+
+  <div class="side">
+    <div class="combo"><div class="n" id="combo">24</div><div class="l">COMBO</div></div>
+    <div class="fever"><div class="lab">FEVER</div><div class="bar"><i></i></div></div>
+    <div class="teach" id="teach"></div>
+  </div>
+</div>
+
+<script>
+const stageEl=document.getElementById('stage');
+function fit(){const s=Math.min(innerWidth/1920,innerHeight/1080);stageEl.style.transform=`scale(${s})`;
+  stageEl.style.left=(innerWidth-1920*s)/2+'px';stageEl.style.top=(innerHeight-1080*s)/2+'px'}
+addEventListener('resize',fit);fit();
+
+const COLORS=['var(--l1)','var(--l2)','var(--l3)','var(--l4)'];
+const CARD=['#ff3d9a','#22e3ff','#ffd23f','#5dff7a'];
+const esc=t=>t.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+const shuffle=a=>{a=[...a];for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]]}return a};
+const TEACH={1:'<b>교사</b>: 반이 외친 단어의 레인 <b>1~4</b>',2:'<b>교사</b>: 따라 부른 마디마다 <b>O</b> / <b>X</b>',
+  3:'<b>교사</b>: 빈칸 박자에 반이 외친 단어의 레인',4:'<b>교사</b>: 매 박마다 반이 외친 단어의 레인'};
+
+const TEACH_S={1:'뜻에 맞는 단어가 <b>판정선</b>에 닿을 때 그 레인을 눌러요 (<b>1~4</b> 키 · 터치)',2:'LISTEN 마디에 잘 듣고, YOU 마디에 큰 소리로 따라 말한 뒤 <b>O</b> / <b>X</b>',3:'빈칸에 들어갈 단어가 판정선에 닿을 때 그 레인을 눌러요',4:'한 박에 한 단어씩, 순서에 맞는 단어를 눌러요'};
+// ── 곡 선택: 교재(리드잇 50-2 / 50-3) → Unit ──
+let book=0,U=null,READIT=[],ROLE='student',maxCombo=0;
+const toParent=m=>{try{parent.postMessage(Object.assign({src:'readbeat'},m),location.origin)}catch(e){}};
+function drawSelect(){
+  if(!READIT.length){document.getElementById('books').innerHTML='';document.getElementById('units').innerHTML='<div style="grid-column:1/-1;text-align:center;font-size:34px;color:#bfe9ff">곡을 불러오는 중…</div>';return}
+  document.getElementById('books').innerHTML=READIT.map((b,i)=>`<button class="${i===book?'on':''}" data-b="${i}">${b.name}</button>`).join('');
+  document.querySelectorAll('#books button').forEach(x=>x.onclick=()=>{book=+x.dataset.b;drawSelect()});
+  document.getElementById('units').innerHTML=READIT[book].units.map((u,i)=>`<div class="ucard" data-u="${i}">
+    <div class="num" style="background:${CARD[i%4]}">${String(u.unit).padStart(2,'0')}</div>
+    <div><div class="tt">${esc(u.title)}</div><div class="sj">${esc(u.subject)}</div></div></div>`).join('');
+  document.querySelectorAll('.ucard').forEach(c=>c.onclick=()=>startUnit(READIT[book].units[+c.dataset.u]));
+}
+function reportScore(){if(U&&score>0)toParent({type:'rb-score',level:READIT[book].id,unit:U.unit,score,combo:maxCombo,stage:cur})}
+function showSelect(){reportScore();U=null;music.pause();chantMusic.pause();stopVoice();document.getElementById('select').style.display='';document.getElementById('switch').style.visibility='hidden';drawSelect()}
+document.getElementById('toSelect').onclick=showSelect;
+const quit=()=>{reportScore();U=null;music.pause();chantMusic.pause();stopVoice();toParent({type:'rb-quit'})};
+document.getElementById('quitBtn').onclick=quit;document.getElementById('quitBtn2').onclick=quit;
+addEventListener('keydown',e=>{if(e.key==='Escape')showSelect()});
+function startUnit(u){
+  U=u;document.getElementById('select').style.display='none';document.getElementById('switch').style.visibility='';
+  document.getElementById('jk').textContent=String(u.unit).padStart(2,'0');
+  document.getElementById('uinfo').textContent=`${READIT[book].name} · UNIT ${u.unit} · ${u.subject.toUpperCase()}`;
+  document.getElementById('utitle').textContent=u.title;
+  combo=0;score=0;maxCombo=0;energy=100;drawEnergy();setStage(1);music.currentTime=0;music.play().catch(()=>{});
+}
+
+// ── 스테이지 문제 (한 바퀴마다 다음 문제) ──
+const reW=w=>new RegExp('\\b('+w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'(e?s|d|ed|ing)?)\\b','i');
+function blanks(){ // 키워드가 들어간 본문 문장
+  const out=[];U.passage.forEach(sen=>U.key_words.forEach(k=>{const m=sen.match(reW(k.en));if(m)out.push({sen,word:m[1],k:k.en})}));
+  return out.length?out:[{sen:U.sentence_pattern,word:U.sentence_pattern.split(' ').pop(),k:''}];
+}
+function makeQ(n,ci){
+  const kws=U.key_words;
+  if(n===1){const k=kws[ci%kws.length];
+    const opts=shuffle([k.en,...shuffle(kws.filter(x=>x.en!==k.en)).slice(0,3).map(x=>x.en)]);
+    return{prompt:`<div class="hint">뜻에 맞는 단어를 외쳐요!</div><div class="q">${esc(k.ko)}</div>`,
+      seq:opts.map((w,i)=>[i,w,w===k.en?1:0])}}
+  if(n===3){const B=blanks(),q=B[ci%B.length];
+    // 오답 보기: 넣었을 때 본문의 다른 문장이 되는 단어는 빼기(정답이 둘이 되지 않게). 모자라면 같은 Level 다른 Unit 단어로
+    const fits=w=>U.passage.includes(q.sen.replace(q.word,w))||U.passage.includes(q.sen.replace(q.word,w[0].toUpperCase()+w.slice(1)));
+    const pool=w=>w.toLowerCase()!==q.word.toLowerCase()&&w.toLowerCase()!==q.k.toLowerCase()&&!fits(w);
+    const others=[...shuffle(kws.map(x=>x.en).filter(pool)),
+      ...shuffle(READIT[book].units.filter(x=>x!==U).flatMap(x=>x.key_words.map(k=>k.en)).filter(pool))]
+      .filter((w,i,a)=>a.indexOf(w)===i).slice(0,3);
+    const opts=shuffle([q.word,...others]);
+    return{prompt:`<div class="hint">빈칸에 들어갈 단어는?</div><div class="q en">${esc(q.sen).replace(esc(q.word),'<span class="blank">?</span>')}</div>`,
+      seq:opts.map((w,i)=>[i,w,w===q.word?1:0])}}
+  // 4: Sentence Pattern 먼저, 다음은 7단어 이하 본문 문장
+  const sens=[U.sentence_pattern,...U.passage.filter(x=>x!==U.sentence_pattern&&x.split(' ').length<=7)];
+  const words=sens[ci%sens.length].split(' ');
+  return{prompt:`<div class="hint">순서대로 한 박에 한 단어!</div><div class="slots" id="slots">${words.map(w=>`<b>${esc(w)}</b>`).join('')}</div>`,
+    seq:words.map(w=>[Math.random()*4|0,w,1]),order:true};
+}
+
+let cur=1,notes=[],t0=0,qci=-1,Q=null;
+const lanes=[...document.querySelectorAll('.lane')];
+function setStage(n){
+  cur=n;qci=-1;Q=null;
+  document.querySelectorAll('#steps span').forEach((s,i)=>{s.className=i+1<n?'done':i+1==n?'on':''});
+  document.getElementById('teach').innerHTML=(ROLE==='student'?TEACH_S:TEACH)[n];
+  const lane=n!==2;
+  ['lanes','judge','keys'].forEach(id=>document.getElementById(id).style.display=lane?'':'none');
+  document.getElementById('chant').style.display=lane?'none':'block';
+  if(!lane){document.getElementById('prompt').innerHTML='<div class="hint">LISTEN 마디에 듣고, YOU 마디에 다 같이 따라 말해요!</div>';
+    chantLine=0;chantMark_=null;chantBar=-1;preloadVoices();document.getElementById('lyric').textContent=U.passage[0];document.getElementById('lyricNext').textContent=U.passage[1]||'';music.pause();chantMusic.currentTime=0;chantMusic.play().catch(()=>{})}
+  else{chantMusic.pause();stopVoice();if(U&&music.paused&&!pauseAt)music.play().catch(()=>{})}
+  window.setDance?.(n);
+  lanes.forEach(l=>l.innerHTML='');notes=[];t0=performance.now();lastBeat=-1;pausedTotal=0;pauseAt=0;
+}
+function loadQ(ci){
+  qci=ci;Q=makeQ(cur,ci);document.getElementById('prompt').innerHTML=Q.prompt;
+  lanes.forEach(l=>l.innerHTML='');notes=[];
+  Q.seq.forEach(([ln,w,ok],i)=>{const d=document.createElement('div');d.className='note';
+    d.style.background=COLORS[ln];d.style.color=COLORS[ln];d.innerHTML=`<span>${esc(w)}</span>`;lanes[ln].appendChild(d);
+    notes.push({el:d,ln,ok,i,delay:i*GAP})});
+}
+document.querySelectorAll('#steps span').forEach((x,i)=>x.onclick=()=>setStage(i+1)); // 진행 표시를 눌러 단계 이동
+
+const J=document.getElementById('jtext');let combo=0,score=0,lastBeat=-1;
+function judge(txt,col){J.textContent=txt;J.style.color=col;J.style.textShadow=`0 0 30px ${col}`;J.classList.remove('show');void J.offsetWidth;J.classList.add('show')}
+// 음악: 오락실 K-팝 약 152 BPM. 노트는 3박마다 하나, 4.5초 동안 내려옴
+const BPM=152,BEAT=60/BPM,GAP=BEAT*3,FALL=4.5,HIT=660,OFFSET=0.07; // 판정선: 레인 안 y=660
+const music=new Audio('music/arcade_kpop_150bpm_v1.mp3');music.loop=true;music.volume=.7;music.preload='auto';music.load(); // 켤 때 미리 불러와 바로 재생
+const stageEl2=document.getElementById('stage');
+function hitFx(ln){const lane=lanes[ln],c=CARD[ln];
+  let bm=lane.querySelector('.beam');if(!bm){bm=document.createElement('div');bm.className='beam';lane.appendChild(bm)}
+  let bs=lane.querySelector('.burst');if(!bs){bs=document.createElement('div');bs.className='burst';lane.appendChild(bs)}
+  [bm,bs].forEach(e=>{e.style.setProperty('--c',c);e.classList.remove('flash');void e.offsetWidth;e.classList.add('flash')});
+  const k=document.querySelectorAll('#keys div')[ln];k.classList.add('hit');setTimeout(()=>k.classList.remove('hit'),120);
+  for(let i=0;i<10;i++){const sp=document.createElement('div');sp.className='spark';sp.style.setProperty('--c',c);
+    sp.style.left=(lane.clientWidth/2-5)+'px';lane.appendChild(sp);const a=Math.random()*Math.PI*2,r=60+Math.random()*90;
+    sp.animate([{transform:'translate(0,0)',opacity:1},{transform:`translate(${Math.cos(a)*r}px,${Math.sin(a)*r-40}px)`,opacity:0}],{duration:450,easing:'ease-out'}).onfinish=()=>sp.remove()}
+}
+// ── 교사 입력과 판정 ──
+// 1~4: 그 레인의 노트 / O·X: 챈트 평가 / Space: 일시정지 / Esc: 곡 선택
+const WIN={PERFECT:.15,GREAT:.28,GOOD:.42};      // 판정선과의 시간 차(초). 교사가 듣고 누르는 시간을 감안해 넉넉하게
+const PTS={PERFECT:1000,GREAT:700,GOOD:400};
+let cycStart=0,energy=100,pausedTotal=0,pauseAt=0;
+const gameT=()=>((pauseAt||performance.now())-t0-pausedTotal)/1000;
+function drawEnergy(){document.getElementById('energyBar').style.width=Math.max(0,energy)+'%'}
+function addScore(kind){const mul=Math.min(1.5,1+Math.floor(combo/10)*.1);combo++;if(combo>maxCombo)maxCombo=combo;score+=Math.round(PTS[kind]*mul)}
+function miss(){combo=0;energy-=10;drawEnergy();judge('MISS','#ff6b6b');
+  if(energy<=0){judge('STAGE FAILED','#ff6b6b');energy=100;setTimeout(drawEnergy,600)}}
+function press(ln){
+  if(!U||pauseAt||cur===2)return;
+  const t=gameT()-cycStart;let best=null,bd=9;
+  notes.forEach(n=>{if(n.done||n.ln!==ln)return;const d=Math.abs(t-(n.delay+FALL));if(d<bd){bd=d;best=n}});
+  const k=document.querySelectorAll('#keys div')[ln];k.classList.add('hit');setTimeout(()=>k.classList.remove('hit'),120);
+  if(!best||bd>WIN.GOOD)return;                     // 근처에 노트 없음: 무시
+  best.done=true;best.el.style.visibility='hidden';
+  if(!best.ok){miss();return}                       // 틀린 단어
+  const kind=bd<=WIN.PERFECT?'PERFECT':bd<=WIN.GREAT?'GREAT':'GOOD';
+  hitFx(ln);judge(kind,CARD[ln]);addScore(kind);
+  if(Q.order)document.querySelectorAll('#slots b')[best.i]?.classList.add('f');
+}
+// ── 챈트: 챈트 비트(약 89 BPM) 한 마디 = 4박. LISTEN 마디에 원어민 음성, YOU 마디에 반이 따라 말하기 ──
+// O = 잘했어(다음 문장) / X = 한 번 더(같은 문장). 아무것도 안 누르면 다음 문장으로
+const chantMusic=new Audio('music/chant_beat_90bpm_v1.mp3');chantMusic.loop=true;chantMusic.volume=.55;chantMusic.preload='auto';chantMusic.load();
+const C_BEAT=60/89.1,C_BAR=C_BEAT*4,C_OFF=0.72;
+// 낭독은 Web Audio로: 챈트 시작 때 그 Unit 문장들을 메모리에 미리 풀어 두고 마디 시작에 바로 재생
+const AC=new (window.AudioContext||window.webkitAudioContext)();
+let voiceBufs=[],voiceSrcNode=null,vStart=0,vDur=0,vTTS=false;let chantLine=0,chantMark_=null,chantBar=-1;
+function preloadVoices(){voiceBufs=U.passage.map(()=>null)}   // 교재 음성 파일은 공개 사이트에 두지 않아요 → 기기 영어 음성으로 읽어 줘요   // null = 파일 없음 → 브라우저 음성
+function stopVoice(){try{voiceSrcNode&&voiceSrcNode.stop()}catch(e){}voiceSrcNode=null;speechSynthesis.cancel()}
+function speak(i){stopVoice();AC.resume();const buf=voiceBufs[i];
+  if(buf){voiceSrcNode=AC.createBufferSource();voiceSrcNode.buffer=buf;voiceSrcNode.connect(AC.destination);voiceSrcNode.start();
+    vStart=AC.currentTime;vDur=buf.duration;vTTS=false;return}
+  const u=new SpeechSynthesisUtterance(U.passage[i]);u.lang='en-US';u.rate=.9;speechSynthesis.speak(u);vTTS=true}
+const voiceProg=()=>vTTS||!vDur?null:Math.min(1,(AC.currentTime-vStart)/vDur);
+function chantMark(good){if(!U||pauseAt||cur!==2||chantMark_)return;
+  chantMark_=good?'o':'x';
+  if(good){judge('GREAT!','#5dff7a');addScore('GREAT')}else{combo=0;judge('ONE MORE!','#ffd23f')}}
+function togglePause(){if(!U)return;const m=cur===2?chantMusic:music;
+  if(pauseAt){pausedTotal+=performance.now()-pauseAt;pauseAt=0;m.play().catch(()=>{});judge('GO!','#5dff7a')}
+  else{pauseAt=performance.now();m.pause();stopVoice();judge('PAUSE','#ffffff')}}
+addEventListener('keydown',e=>{
+  if(e.repeat)return;
+  if('1234'.includes(e.key))press(+e.key-1);
+  else if(e.key==='o'||e.key==='O')chantMark(true);
+  else if(e.key==='x'||e.key==='X')chantMark(false);
+  else if(e.code==='Space'){e.preventDefault();togglePause()}
+});
+document.querySelectorAll('#keys div').forEach((k,i)=>k.onclick=()=>press(i));
+lanes.forEach((l,i)=>l.addEventListener('pointerdown',()=>press(i)));   // 레인·노트를 마우스로 눌러도 그 레인 판정
+document.getElementById('btnO').onclick=()=>chantMark(true);document.getElementById('btnX').onclick=()=>chantMark(false);
+
+function loop(now){
+  requestAnimationFrame(loop);
+  if(!U)return;
+  const t=gameT();
+  const bt=cur===2?C_BEAT:BEAT,mt=cur===2?chantMusic.currentTime-C_OFF:(music.paused?t:music.currentTime-OFFSET);
+  stageEl2.style.setProperty('--p',pauseAt?0:(1-((mt%bt+bt)%bt)/bt)**2);
+  if(pauseAt)return;
+  if(cur!==2){
+    if(!Q){loadQ(0);cycStart=t}
+    const cycle=FALL+Q.seq.length*GAP+1.2;
+    if(t-cycStart>=cycle){cycStart=t;loadQ(qci+1)}
+    const tc=t-cycStart;
+    notes.forEach(n=>{const p=(tc-n.delay)/FALL;n.el.style.top=(p*HIT-48)+'px';
+      n.el.style.opacity=p<0||p>1.08?0:1;
+      // 정답 노트를 놓치면 MISS
+      if(!n.done&&n.ok&&tc-(n.delay+FALL)>WIN.GOOD){n.done=true;miss()}});
+  }else{
+    const ct=chantMusic.currentTime-C_OFF;if(ct<0)return;
+    const bar=Math.floor(ct/C_BAR),beat=Math.floor((ct%C_BAR)/C_BEAT),listen=bar%2===0;
+    if(bar!==chantBar){
+      if(listen&&chantBar>=0){                      // YOU 마디가 끝남 → 다음 문장 또는 한 번 더
+        if(chantMark_!=='x')chantLine++;
+        chantMark_=null;
+        if(chantLine>=U.passage.length){judge('CHANT CLEAR!','#ffd23f');setTimeout(()=>{if(cur===2)setStage(3)},900);chantBar=bar;return}
+      }
+      chantBar=bar;vDur=0;if(listen)speak(chantLine);
+      document.querySelector('.turn .cam').classList.toggle('on',listen);document.querySelector('.turn .you').classList.toggle('on',!listen);
+    }
+    document.querySelectorAll('.beats i').forEach((i,k)=>i.classList.toggle('on',k<=beat));
+    // LISTEN: 음성 길이에 맞춰 단어 칠하기 / YOU: 전체 문장 강조
+    const words=U.passage[chantLine].split(' ');
+    const vp=voiceProg(),prog=listen?(vp!==null?vp:(ct%C_BAR)/C_BAR):1;
+    const k=Math.ceil(words.length*prog);
+    document.getElementById('lyric').innerHTML=`<span class="sung">${esc(words.slice(0,k).join(' '))}</span> ${esc(words.slice(k).join(' '))}`;
+    document.getElementById('lyricNext').textContent=U.passage[chantLine+1]||'';
+  }
+  document.getElementById('combo').textContent=combo;document.getElementById('score').textContent=score.toLocaleString();
+}
+addEventListener('message',e=>{
+  if(e.origin!==location.origin||!e.data||e.data.src!=='app'||e.data.type!=='rb-init')return;
+  READIT=e.data.readit||[];ROLE=e.data.role==='teacher'?'teacher':'student';book=0;showSelect();
+});
+document.addEventListener('visibilitychange',()=>{if(document.hidden&&U&&!pauseAt)togglePause()});
+showSelect();requestAnimationFrame(loop);toParent({type:'rb-ready'});
+
+</script>
+<script type="importmap">{"imports":{"three":"./vendor/three/three.module.js","three/addons/":"./vendor/three/addons/"}}</script>
+<script type="module">
+// 3D 카밀라 (http 서버로 열어야 GLB를 불러옴)
+import * as THREE from 'three';
+import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
+const cv=document.getElementById('dancer3d');
+const renderer=new THREE.WebGLRenderer({canvas:cv,antialias:true,alpha:true});
+renderer.setSize(cv.width,cv.height,false);renderer.outputColorSpace=THREE.SRGBColorSpace;
+const scene=new THREE.Scene(),cam=new THREE.PerspectiveCamera(28,cv.width/cv.height,0.1,100);
+scene.add(new THREE.HemisphereLight(0xffffff,0x553377,2.2));
+const key=new THREE.DirectionalLight(0xffffff,2);key.position.set(2,4,5);scene.add(key);
+const pink=new THREE.PointLight(0xff3d9a,30);pink.position.set(-2,2,-1);scene.add(pink);
+const cyan=new THREE.PointLight(0x22e3ff,30);cyan.position.set(2,2,-1);scene.add(cyan);
+// 힙합 춤만 순서대로 재생. 한 곡이 끝나면 다음 춤으로.
+const MIX=['Hip_Hop_Dance_1','Step_Hip_Hop_Dance','Hip_Hop_Dance_2','Hip_Hop_Dance'];
+const START={1:0,2:1,3:2,4:3};
+const clock=new THREE.Clock();let mixer,actions={},cur,idx=0,hips,camOff;
+function playIdx(i){idx=(i+MIX.length)%MIX.length;const a=actions[MIX[idx]];if(!a)return playIdx(idx+1);
+  a.reset().setLoop(THREE.LoopRepeat,a.getClip().duration<5?2:1);a.clampWhenFinished=true;
+  if(cur&&cur!==a)a.crossFadeFrom(cur,.4,false);a.play();cur=a}
+window.setDance=n=>{if(mixer)playIdx(START[n]??0)};
+new GLTFLoader().load('character/camila.glb?v=1',g=>{
+  const m=g.scene;scene.add(m);
+  // 스킨 메쉬는 bbox가 틀어지므로 뼈 위치로 크기 측정
+  m.updateMatrixWorld(true);const box=new THREE.Box3(),v=new THREE.Vector3();
+  m.traverse(o=>{if(o.isBone)box.expandByPoint(o.getWorldPosition(v))});
+  const h=(box.max.y-box.min.y)*1.4,c=box.getCenter(new THREE.Vector3());
+  const d=h/2/Math.tan(THREE.MathUtils.degToRad(cam.fov/2))*1.15;
+  cam.position.set(c.x,c.y,c.z+d);cam.lookAt(c.x,c.y,c.z);
+  m.traverse(o=>{if(o.isBone&&!hips&&/hip|pelvis/i.test(o.name))hips=o});
+  if(hips)camOff=cam.position.clone().sub(hips.getWorldPosition(new THREE.Vector3()));
+  mixer=new THREE.AnimationMixer(m);g.animations.forEach(a=>actions[a.name]=mixer.clipAction(a));
+  mixer.addEventListener('finished',()=>playIdx(idx+1));
+  window.setDance(+location.hash.slice(1)||1);
+},undefined,()=>{document.querySelector('.dancer .name').textContent='3D 로딩 실패'});
+const hp=new THREE.Vector3();
+renderer.setAnimationLoop(()=>{if(mixer)mixer.update(clock.getDelta());
+  if(hips){hips.getWorldPosition(hp);cam.position.x+=(hp.x+camOff.x-cam.position.x)*.15;cam.position.z+=(hp.z+camOff.z-cam.position.z)*.15}
+  renderer.render(scene,cam)});
+</script>
+</body>
+</html>

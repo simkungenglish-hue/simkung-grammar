@@ -8,3 +8,8 @@
 
 `functions/ai-feedback/index.ts` 는 Edge Functions → ai-feedback → Code 에 통째로 붙여넣고 Deploy 해요.
 (지금 운영 중인 버전의 리포트 코멘트 기능을 그대로 두고 본문 분석·AI 단어장·사진 읽기를 더한 파일이에요.)
+
+
+## 15단계 · 16단계 (학습 단계 고르기 · 게임 열기 · READ & BEAT)
+- `schema15_steps_games.sql`: 학생·교재별로 학습 단계를 고를 수 있게 하고, 유닛 테스트를 통과하면 게임이 열리게 해요.
+- `schema16_readbeat.sql`: READ & BEAT 곡(교재 본문)을 로그인한 사람만 볼 수 있게 저장하는 표예요. 교재 본문은 GitHub 공개 파일에 넣지 않아요.

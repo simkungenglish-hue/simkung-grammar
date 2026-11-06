@@ -224,7 +224,8 @@ function vtAssign() {
     <p class="tiny">이미 배정된 학생은 설정만 바뀌고 학습 기록은 그대로예요.</p>`
     : '<p>공개된 단어장이 없어요. <b>단어장</b>에서 단어장을 만들고 <b>학생에게 공개</b>를 눌러 주세요.</p>'}</div>
     <div class="card"><h2>배정 현황</h2>${rows ? `<div class="tablewrap"><table><thead><tr><th>학생</th><th>단어장</th><th>범위</th><th>통과 기준</th><th>하루 새 유닛</th><th>첫 글자 힌트</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>` : '<p class="muted">아직 배정이 없어요.</p>'}</div>`;
-  if ($('#abk')) $('#abk').onchange = e => { VT.asgBook = e.target.value; const bk = vtBook(e.target.value); $('#aset').innerHTML = vtSettingsForm(vtDefaults(bk), 1, bk); };
+  vtBindSteps($('#vb'));
+  if ($('#abk')) $('#abk').onchange = e => { VT.asgBook = e.target.value; const bk = vtBook(e.target.value); $('#aset').innerHTML = vtSettingsForm(vtDefaults(bk), 1, bk); vtBindSteps($('#aset')); };
   if ($('#asave')) $('#asave').onclick = async () => {
     const book = $('#abk').value, ids = [...document.querySelectorAll('#apk input:checked')].map(i => i.value);
     if (!ids.length) return toast('학생을 골라 주세요');
@@ -244,6 +245,7 @@ function vtAssign() {
     const bk = vtBook(a.book_id);
     const m = modal(`<h2>${esc(s.name)} · ${esc(bk.title)}</h2>${vtSettingsForm({ ...vtDefaults(bk), ...(a.settings || {}) }, a.start_ord || 1, bk)}
       <div class="row" style="margin-top:12px"><button class="btn" id="sv">저장</button><button class="btn ghost" id="cx">취소</button></div>`);
+    vtBindSteps(m);
     m.querySelector('#cx').onclick = () => m.remove();
     m.querySelector('#sv').onclick = async () => {
       const { settings, start } = vtReadSettings(m);
@@ -253,8 +255,13 @@ function vtAssign() {
     };
   });
 }
+const VT_STEP_OPTS = [['look', '👀 보고 듣기'], ['memorize', '🧠 외우기'], ['check', '✅ 뜻 고르기'], ['write', '✏️ 철자 쓰기'], ['match', '🧩 짝 맞추기'], ['pos', '🏷️ 품사 맞추기'], ['sent', '📝 문장 빈칸']];
+const VT_PRESETS = { basic: ['look', 'memorize', 'check', 'write', 'match'], std: ['look', 'check', 'write', 'match'], adv: ['check', 'write', 'sent'] };
+function vtBindSteps(root) {
+  root.querySelectorAll('[data-preset]').forEach(b => b.onclick = () => root.querySelectorAll('[data-step]').forEach(i => { i.checked = VT_PRESETS[b.dataset.preset].includes(i.value); }));
+}
 function vtSettingsForm(c, start, bk) {
-  const school = !!(bk && bk.kind === 'school'), only = Array.isArray(c.only) ? c.only : [];
+  const school = !!(bk && bk.kind === 'school'), only = Array.isArray(c.only) ? c.only : [], stepsOn = Array.isArray(c.steps) && c.steps.length ? c.steps : ['look', 'memorize', 'check', 'write', 'match'];
   const scope = school && bk ? `<div style="grid-column:1/-1"><label>열어 줄 과 (시험 범위) <span class="tiny">고르지 않으면 모든 과가 열려요</span></label>
       <div class="uchips">${vtUnits(bk.id).map(u => `<label class="uchip pickable"><input type="checkbox" data-only value="${u.ord}" ${only.includes(u.ord) ? 'checked' : ''}><span>${u.ord}</span><small>${esc((u.title || '').replace(/^Lesson\s*\d+\s*[·.:-]?\s*/i, '').slice(0, 6))}</small></label>`).join('')}</div></div>` : '';
   return `<div class="setgrid vset">${scope}
@@ -266,6 +273,9 @@ function vtSettingsForm(c, start, bk) {
     <div><label class="pick"><input type="checkbox" data-k="speak" ${c.speak ? 'checked' : ''}> 따라 말하기 버튼 보이기</label></div>
     <div><label class="pick"><input type="checkbox" data-k="prev_review" ${c.prev_review !== false ? 'checked' : ''}> 새 ${school ? '과' : '유닛'} 전에 앞 ${school ? '과' : '유닛'} 가볍게 복습</label><div class="tiny">1 학습 → 2 시작 전 1 복습 → 2 학습 → 3 시작 전 2 복습…</div></div>
     <div><label>앞 복습 단어 수</label><input type="number" data-k="prev_n" min="3" max="30" value="${c.prev_n ?? 10}"></div>
+    <div style="grid-column:1/-1"><label>학습 단계 고르기 <span class="tiny">학생 수준에 맞게 고르세요. 유닛 테스트는 늘 마지막에 있고, 통과하면 게임이 열려요</span></label>
+      <div class="row" style="gap:6px;flex-wrap:wrap;margin:4px 0"><button type="button" class="btn small ghost" data-preset="basic">기초 (천천히)</button><button type="button" class="btn small ghost" data-preset="std">표준</button><button type="button" class="btn small ghost" data-preset="adv">심화 (빠르게)</button></div>
+      <div class="uchips" id="vtsteps">${VT_STEP_OPTS.map(([k, n]) => `<label class="uchip pickable wide"><input type="checkbox" data-step value="${k}" ${stepsOn.includes(k) ? 'checked' : ''}><span>${n}</span></label>`).join('')}<span class="uchip wide on"><span>🏁 유닛 테스트 (통과 ${c.pass_pct}%)</span></span></div></div>
     <div><label class="pick"><input type="checkbox" data-k="sequential" ${c.sequential ? 'checked' : ''}> ${school ? '과' : '유닛'}을 순서대로 열기</label><div class="tiny">${school ? '내신 대비는 꺼 두면 시험 범위 과를 바로 공부해요' : '앞 유닛을 통과해야 다음 유닛이 열려요'}</div></div></div>`;
 }
 function vtReadSettings(root) {
@@ -274,6 +284,7 @@ function vtReadSettings(root) {
   return {
     settings: { pass_pct: num('pass_pct', 90, 50, 100), units_per_day: num('units_per_day', 1, 0, 10), review_cap: num('review_cap', 40, 10, 200), first_letter: g('first_letter').checked, speak: g('speak').checked,
       prev_review: g('prev_review').checked, prev_n: num('prev_n', 10, 3, 30),
+      steps: [...root.querySelectorAll('[data-step]:checked')].map(i => i.value),
       sequential: g('sequential').checked, only: [...root.querySelectorAll('[data-only]:checked')].map(i => +i.value).sort((x, y) => x - y) },
     start: num('start', 1, 1, 999)
   };

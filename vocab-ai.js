@@ -330,7 +330,10 @@ async function vtGame() {
   const tChips = VA_SPELL.filter(t => types[t]).map(t => `<span class="wchip"><b>${t}</b> <em>${types[t]}</em></span>`).join('');
   const modeSel = r => `<select data-mode="${r.student_id}"><option value="" ${!r.mode_override ? 'selected' : ''}>자동 (${r.s.grade && r.s.grade.startsWith('초') ? '초등' : '중등'})</option><option value="kid" ${r.mode_override === 'kid' ? 'selected' : ''}>초등 화면</option><option value="teen" ${r.mode_override === 'teen' ? 'selected' : ''}>중등 화면</option></select>`;
   const theme = r => r.mode === 'kid' ? (r.theme === 'pet' ? `${G_PETS[r.pet] || '🐶'} ${esc(r.pet_name || '펫')}` : r.theme === 'monster' ? '⚔️ 몬스터' : '<span class="tiny">아직 안 고름</span>') : '🏅 레벨';
+  const rbr = await S.sb.from('readbeat_runs').select('student_id,level_id,unit,score,combo,stage,at').order('at', { ascending: false }).limit(12);
+  const rbRows = (rbr.data || []).map(r => `<tr><td>${esc((T.sById[r.student_id] || {}).name || '-')}</td><td>${esc(r.level_id)} · Unit ${r.unit}</td><td>${r.score.toLocaleString()}</td><td>${r.combo}</td><td class="tiny">${fmtDT(r.at)}</td></tr>`).join('');
   $('#vb').innerHTML = `
+    <div class="card"><div class="row between"><div><h2 style="margin:0">🎵 READ &amp; BEAT</h2><p class="tiny" style="margin:4px 0 0">교실 TV·PC에서 수업용으로 열어요. 학생은 게임 칸에서 혼자 해요. (수업용 시연은 기록하지 않아요)</p></div><button class="btn" id="rbt">수업용으로 열기</button></div>${rbRows ? `<div class="tablewrap" style="margin-top:8px"><table><thead><tr><th>학생</th><th>곡</th><th>점수</th><th>최고 콤보</th><th>시각</th></tr></thead><tbody>${rbRows}</tbody></table></div>` : ''}</div>
     <div class="card"><h2 style="margin:0 0 8px">이번 주 칭찬 <span class="tiny">최근 7일 기준 · 칭찬 스티커판에 그대로 쓰세요</span></h2>
       <div class="setgrid"><div><h3>🌱 꾸준상 <span class="tiny">공부한 날이 많은 학생</span></h3>${steady.length ? steady.map((r, i) => `<div>${medal[i]} <b>${esc(r.s.name)}</b> <span class="tiny">${r.days7}일 학습 · ${r.xp7} XP</span></div>`).join('') : '<p class="tiny">3일 이상 공부한 학생이 아직 없어요.</p>'}</div>
       <div><h3>🚀 성장상 <span class="tiny">지난주보다 철자 정답률·경험치가 오른 학생</span></h3>${grow.length ? grow.map((r, i) => `<div>${medal[i]} <b>${esc(r.s.name)}</b> <span class="tiny">${r.up != null ? `정답률 +${r.up}%p` : ''}${r.up != null && r.upx > 0 ? ' · ' : ''}${r.upx > 0 ? `경험치 +${r.upx}` : ''}</span></div>`).join('') : '<p class="tiny">비교할 기록이 아직 부족해요.</p>'}</div></div></div>
@@ -344,6 +347,7 @@ async function vtGame() {
       ${rows.map(r => { const L = gLevel(r.xp || 0), a7 = acc(r.ok7, r.n7), top = Object.entries(byStu[r.student_id] || {}).sort((x, y) => y[1] - x[1]).slice(0, 2).map(([t, n]) => `${t} ${n}`).join(', ');
         return `<tr><td><b>${esc(r.s.name)}</b> <span class="tiny">${esc(r.s.grade)}</span></td><td>${modeSel(r)}</td><td>${theme(r)}</td><td>Lv.${L.lv} <span class="tiny">${r.xp} XP</span></td><td>${r.xp7}</td><td>${r.days7}일</td><td>${a7 == null ? '-' : a7 + '%'}</td><td class="tiny">${esc(top || '-')}</td>
         <td><button class="btn ghost small" data-dict="${r.student_id}">받아쓰기 시험지</button></td></tr>`; }).join('') || '<tr><td colspan="9" class="muted">단어장을 배정한 학생이 없어요.</td></tr>'}</tbody></table></div></div>`;
+  if ($('#rbt')) $('#rbt').onclick = () => rbOpen('teacher');
   $('#vgsv').onclick = async () => {
     const { error } = await S.sb.rpc('vocab_game_config_set', { p: { league: $('#vglg').checked, daily_xp_cap: +$('#vgcap').value || 400 } });
     if (error) return toast(errText(error)); toast('저장했어요');

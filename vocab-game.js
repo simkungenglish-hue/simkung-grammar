@@ -1,7 +1,7 @@
 /* 심쿵영어 어휘 게임 - 학생 화면
    원칙: 점수(경험치)는 스스로 떠올려 맞힌 것에서만 나와요. 채점·경험치는 모두 서버가 해요.
    초등(kid): 펫 키우기 / 몬스터 배틀 중 골라요.  중등(teen): 레벨·주간 도전·내 기록 (원장님이 켜면 순위)
-   오늘 복습을 끝내야 게임이 열려요. */
+   오늘 복습을 끝내거나 유닛 테스트를 통과하면 게임이 열려요. */
 'use strict';
 
 const GS = { ok: false, st: null };
@@ -31,7 +31,7 @@ async function loadGame() {
 function gLevel(xp) { let n = 1; while (25 * (n + 1) * n <= xp) n++; return { lv: n, from: 25 * n * (n - 1), to: 25 * (n + 1) * n }; }
 function gMode() { return GS.st && GS.st.mode === 'kid' ? 'kid' : 'teen'; }
 function gRevToday() { const t = kstToday(), r = VS.rlog.find(x => x.day === t); return r ? r.n : 0; }
-function gOpen() { return vLearned() + VS.srs.length > 0 && (vDue().length === 0 || gRevToday() >= 30); }
+function gOpen() { return vLearned() + VS.srs.length > 0 && (vDue().length === 0 || gRevToday() >= 30 || vPassedToday()); }
 function gPool() {
   const byId = new Map(VS.items.map(i => [i.id, i]));
   const learned = VS.srs.map(r => ({ r, it: byId.get(r.item_id) })).filter(x => x.it);
@@ -116,10 +116,11 @@ function gHomePanel() {
       <div><small>타임어택 최고</small><b>${(st.best && st.best.timeattack) || 0}개</b></div></div>
       ${st.league ? '<button class="btn ghost small" id="glg" style="margin-top:8px">🏆 이번 주 순위 보기</button>' : ''}`;
   }
-  const lock = !(vLearned() + VS.srs.length) ? '유닛 테스트를 한 번 보면 게임이 열려요.' : !open ? `오늘 복습을 먼저 끝내면 게임이 열려요 (${due}개 남음)` : '';
+  const lock = !(vLearned() + VS.srs.length) ? '유닛 테스트를 한 번 보면 게임이 열려요.' : !open ? `오늘 복습(${due}개 남음)을 끝내거나 유닛 테스트를 통과하면 게임이 열려요` : '';
   const today = gTodayPick();
   const games = Object.entries(G_GAMES).filter(([, g]) => g[kid ? 'kid' : 'teen']).map(([k, g]) =>
-    `<button class="ggame ${k === today ? 'today' : ''}" data-game="${k}" ${lock || (kid && !st.theme) ? 'disabled' : ''}><span class="gic">${g.ic}</span><b>${g.n}</b><span class="tiny">${g.d}</span>${k === today ? '<span class="badge">오늘의 게임</span>' : ''}</button>`).join('');
+    `<button class="ggame ${k === today ? 'today' : ''}" data-game="${k}" ${lock || (kid && !st.theme) ? 'disabled' : ''}><span class="gic">${g.ic}</span><b>${g.n}</b><span class="tiny">${g.d}</span>${k === today ? '<span class="badge">오늘의 게임</span>' : ''}</button>`).join('')
+    + (typeof rbOpen === 'function' ? `<button class="ggame" data-rb="1" ${lock || (kid && !st.theme) ? 'disabled' : ''}><span class="gic">🎵</span><b>READ &amp; BEAT</b><span class="tiny">리듬에 맞춰 단어·문장 읽기</span></button>` : '');
   return `<div class="card gpanel" id="gpanel">${top}
     ${lock ? `<div class="result warn" style="margin:10px 0 0">🔒 ${lock}</div>` : ''}
     <div class="ggrid">${games}</div>
@@ -128,6 +129,7 @@ function gHomePanel() {
 function gBindHome() {
   document.querySelectorAll('[data-gtheme]').forEach(b => b.onclick = () => gSetup(b.dataset.gtheme === 'change' ? null : b.dataset.gtheme));
   document.querySelectorAll('[data-game]').forEach(b => b.onclick = () => gStart(b.dataset.game));
+  document.querySelectorAll('[data-rb]').forEach(b => b.onclick = () => rbOpen('student'));
   if ($('#glg')) $('#glg').onclick = () => gLeague();
 }
 async function gRefreshPanel() {
@@ -203,7 +205,7 @@ function gBindType(fn) {
 }
 function gStart(game) {
   const g = G_GAMES[game]; if (!g) return;
-  if (!gOpen()) return toast('오늘 복습을 먼저 끝내요!', 3000);
+  if (!gOpen()) return toast('오늘 복습을 끝내거나 유닛 테스트를 통과하면 열려요!', 3000);
   let pool = gPool();
   if (game === 'chain') pool = pool.filter(it => Array.isArray(it.derivs) && it.derivs.some(d => d && d.w));
   if (game === 'boss') { const w = gWrongPool(); pool = w.length >= 5 ? w : w.concat(gPool().filter(x => !w.includes(x))); }
