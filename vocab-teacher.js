@@ -4,7 +4,7 @@
 const VT = { sub: 'now', books: [], units: [], items: [], asg: [], ustat: [], ov: null, bookId: null, unitId: null, loaded: false, ok: true };
 const V_LEVELS = [['C', '초3'], ['D', '초4'], ['E', '초5'], ['F', '초6'], ['G', '중1'], ['H', '중2'], ['I', '중3'], ['J', '중3 심화']];
 const V_LEVEL_GRADE = Object.fromEntries(V_LEVELS);
-const V_DEFAULT = { pass_pct: 90, first_letter: false, units_per_day: 1, review_cap: 40, speak: true };
+const V_DEFAULT = { pass_pct: 90, first_letter: false, units_per_day: 1, review_cap: 40, speak: true, prev_review: true, prev_n: 10 };
 
 async function loadVT() {
   const sb = S.sb;
@@ -55,12 +55,12 @@ async function tabVocab() {
       <p class="tiny">${esc(errText(VT.err))}</p></div>`;
     return;
   }
-  const subs = [['now', '현황'], ['assign', '배정'], ['books', '단어장']].concat(typeof vtAI === 'function' ? [['ai', '🤖 AI 자동 만들기'], ['game', '게임·칭찬']] : []).concat([['print', '시험지 인쇄']]);
+  const subs = [['now', '현황'], ['time', '학습 시간'], ['assign', '배정'], ['books', '단어장'], ['exam', '📝 시험'], ['wrong', '오답관리']].concat(typeof vtAI === 'function' ? [['ai', '🤖 AI 자동 만들기'], ['game', '게임·칭찬']] : []).concat([['print', '시험지 인쇄']]);
   tb.innerHTML = `<div class="vsubs noprint">${subs.map(([k, n]) => `<button class="seg ${VT.sub === k ? 'on' : ''}" data-vs="${k}">${n}</button>`).join('')}
     <button class="btn ghost small" id="vrl" style="margin-left:auto">새로고침</button></div><div id="vb"></div>`;
   document.querySelectorAll('[data-vs]').forEach(b => b.onclick = () => { VT.sub = b.dataset.vs; VT.bookId = VT.sub === 'books' ? VT.bookId : null; if (VT.sub === 'now') VT.loaded = false; tabVocab(); });
   $('#vrl').onclick = async () => { VT.loaded = false; await tabVocab(); };
-  ({ now: vtNow, assign: vtAssign, books: vtBooks, print: vtPrint, ai: typeof vtAI === 'function' ? vtAI : vtNow, game: typeof vtGame === 'function' ? vtGame : vtNow })[VT.sub]();
+  ({ now: vtNow, time: vtTime, exam: vtExam, wrong: vtWrong, assign: vtAssign, books: vtBooks, print: vtPrint, ai: typeof vtAI === 'function' ? vtAI : vtNow, game: typeof vtGame === 'function' ? vtGame : vtNow })[VT.sub]();
 }
 
 /* ---------- 현황 ---------- */
@@ -118,7 +118,13 @@ async function vtStudent(sid) {
   const s = T.sById[sid]; if (!s) return;
   const o = (VT.ov.students || []).find(x => x.student_id === sid) || {};
   const m = modal('<p class="muted">불러오는 중…</p>');
-  const [weak, srs] = await Promise.all([S.sb.rpc('vocab_student_weak', { p_student: sid, p_days: 60 }), vFetchAll(() => S.sb.from('vocab_srs').select('box,due_on,item_id').eq('student_id', sid).order('item_id'))]);
+  const [weak, srs, rec, tm] = await Promise.all([S.sb.rpc('vocab_student_weak', { p_student: sid, p_days: 60 }), vFetchAll(() => S.sb.from('vocab_srs').select('box,due_on,item_id').eq('student_id', sid).order('item_id')),
+    S.sb.from('vocab_progress').select('unit_id,step,score,total,time_sec,done_at').eq('student_id', sid).order('done_at', { ascending: false }).limit(14),
+    S.sb.rpc('vocab_time_overview', { p_days: 30 })]);
+  const tmine = (tm.data || []).filter(r => r.student_id === sid), tsum = from => tmine.filter(r => r.day >= from).reduce((n, r) => n + r.sec, 0);
+  const tinfo = tm.error ? null : { t0: tsum(kstToday()), t7: tsum(addDays(kstToday(), -6)), t30: tsum(addDays(kstToday(), -29)) };
+  const stepName = { look: '보고 듣기', memorize: '외우기', check: '뜻 고르기', write: '철자 쓰기', match: '짝 맞추기', test: '유닛 테스트', prev: '앞 복습', pos: '품사', sent: '문장 빈칸' };
+  const recent = (rec.data || []).map(r => { const u = VT.units.find(x => x.id === r.unit_id), b = u && vtBook(u.book_id); return `<tr><td class="tiny">${fmtDT(r.done_at)}</td><td>${esc(b ? b.title : '')} <b>${esc(u ? (u.title || u.ord) : '')}</b></td><td>${esc(stepName[r.step] || r.step)}</td><td>${r.total ? r.score + '/' + r.total : '-'}</td><td class="tiny">${vtDur(r.time_sec)}</td></tr>`; }).join('');
   const boxes = [1, 2, 3, 4, 5, 6].map(b => srs.filter(r => r.box === b).length), tot = srs.length || 1;
   const boxName = ['1일', '3일', '7일', '14일', '30일', '완전 암기'];
   const myAsg = VT.asg.filter(a => a.student_id === sid);
@@ -136,11 +142,14 @@ async function vtStudent(sid) {
     <div class="vstats" style="margin:12px 0">
       <div class="vstat"><b>${o.learned || 0}</b><span>외운 단어</span></div><div class="vstat"><b>${o.mastered || 0}</b><span>완전 암기</span></div>
       <div class="vstat"><b>${o.due || 0}</b><span>밀린 복습</span></div><div class="vstat"><b>${o.units_passed || 0}</b><span>통과 유닛</span></div></div>
+    ${tinfo ? `<div class="vstats" style="margin:0 0 12px"><div class="vstat"><b>${vtDur(tinfo.t0)}</b><span>오늘 학습 시간</span></div><div class="vstat"><b>${vtDur(tinfo.t7)}</b><span>최근 7일</span></div><div class="vstat"><b>${vtDur(tinfo.t30)}</b><span>최근 30일</span></div></div>` : ''}
     <h3>복습 상자 (기억 단계)</h3>
     <div class="boxbar">${boxes.map((n, i) => n ? `<i class="b${i + 1}" style="flex:${n}" title="${boxName[i]} 상자 ${n}개">${n}</i>` : '').join('') || '<span class="tiny">아직 테스트한 단어가 없어요</span>'}</div>
     <div class="tiny">${boxName.map((n, i) => `<span class="lg b${i + 1}"></span>${n}`).join(' ')}</div>
     <h3 style="margin-top:14px">유닛 진행</h3>${books || '<p class="tiny">배정된 단어장이 없어요.</p>'}
     <p class="tiny">유닛 번호를 누르면 그 유닛을 처음부터 다시 학습시킬 수 있어요. (지난 답안 기록은 남아요)</p>
+    <h3 style="margin-top:14px">최근 학습 내용</h3>
+    ${recent ? `<div class="tablewrap"><table><thead><tr><th>시각</th><th>교재 · 유닛</th><th>단계</th><th>점수</th><th>시간</th></tr></thead><tbody>${recent}</tbody></table></div>` : '<p class="tiny">아직 학습 기록이 없어요.</p>'}
     <h3 style="margin-top:14px">자주 틀린 단어 (60일)</h3>
     ${wl ? `<div class="tablewrap"><table><thead><tr><th>단어</th><th>뜻</th><th>틀림/전체</th><th>지금 상자</th></tr></thead><tbody>${wl}</tbody></table></div>` : '<p class="tiny">틀린 단어가 없어요.</p>'}
     <div class="row" style="margin-top:12px"><button class="btn" id="rp">A4 어휘 리포트 인쇄</button><button class="btn ghost" id="wp">틀린 단어 시험지</button><button class="btn ghost" id="wd">받아쓰기 시험지</button></div>`;
@@ -153,7 +162,7 @@ async function vtStudent(sid) {
     VT.ustat = VT.ustat.filter(x => !(x.student_id === sid && x.unit_id === u.id));
     toast('다시 학습하도록 바꿨어요'); m.remove(); vtStudent(sid);
   });
-  m.querySelector('#rp').onclick = () => vtReportPrint(s, o, boxes, boxName, myAsg, weak.data || []);
+  m.querySelector('#rp').onclick = () => vtReportPrint(s, o, boxes, boxName, myAsg, weak.data || [], tinfo, rec.data || []);
   m.querySelector('#wp').onclick = () => {
     const ids = new Set((weak.data || []).map(w => w.item_id)); const its = VT.items.filter(i => ids.has(i.id));
     if (!its.length) return toast('틀린 단어가 없어요');
@@ -165,7 +174,7 @@ async function vtStudent(sid) {
     vtPrintSheet({ title: `${s.name} · 받아쓰기`, items: its, kind: 'dict', key: true, name: s.name });
   };
 }
-function vtReportPrint(s, o, boxes, boxName, myAsg, weak) {
+function vtReportPrint(s, o, boxes, boxName, myAsg, weak, tinfo, rec) {
   const books = myAsg.map(a => {
     const bk = vtBook(a.book_id); if (!bk) return '';
     const us = vtAsgUnits(a);
@@ -177,11 +186,12 @@ function vtReportPrint(s, o, boxes, boxName, myAsg, weak) {
   const acc7 = o.week_n ? pct(o.week_ok, o.week_n) : null;
   const html = `<div class="rp-h"><div><b>스텔라의 심쿵영어</b> · 어휘 학습 리포트</div><div>${new Date().toLocaleDateString('ko-KR')}</div></div>
     <h1>${esc(s.name)} <small>${esc(s.grade)}</small></h1>
-    <table class="kv4"><tr><td><small>외운 단어</small><b>${o.learned || 0}</b></td><td><small>완전 암기</small><b>${o.mastered || 0}</b></td><td><small>통과 유닛</small><b>${o.units_passed || 0}</b></td><td><small>최근 7일</small><b>${o.days7 || 0}일 학습</b></td><td><small>7일 정답률</small><b>${acc7 == null ? '-' : acc7 + '%'}</b></td></tr></table>
+    <table class="kv4"><tr><td><small>외운 단어</small><b>${o.learned || 0}</b></td><td><small>완전 암기</small><b>${o.mastered || 0}</b></td><td><small>통과 유닛</small><b>${o.units_passed || 0}</b></td><td><small>최근 7일</small><b>${o.days7 || 0}일 학습</b></td><td><small>7일 정답률</small><b>${acc7 == null ? '-' : acc7 + '%'}</b></td>${tinfo ? `<td><small>학습 시간 7일 / 30일</small><b>${vtDur(tinfo.t7)} / ${vtDur(tinfo.t30)}</b></td>` : ''}</tr></table>
     <h3>기억 단계별 단어 수</h3>
     <div class="bars">${boxes.map((n, i) => `<div><span>${boxName[i]}</span><i style="width:${n / tot * 100}%"></i><b>${n}</b></div>`).join('')}</div>
     <p class="note">틀린 단어는 1일 뒤, 맞힌 단어는 3일 → 7일 → 14일 → 30일 간격으로 다시 확인해요. '완전 암기'는 30일 뒤에도 기억한 단어예요.</p>
     ${books}
+    ${(rec || []).length ? `<h3>최근 학습 내용</h3><table class="wt"><tr><th>날짜</th><th>유닛</th><th>단계</th><th>점수</th></tr>${rec.slice(0, 10).map(r => { const u = VT.units.find(x => x.id === r.unit_id); const nm = { look: '보고 듣기', memorize: '외우기', check: '뜻 고르기', write: '철자 쓰기', match: '짝 맞추기', test: '유닛 테스트', prev: '앞 복습', pos: '품사', sent: '문장 빈칸' }; return `<tr><td>${fmtDT(r.done_at)}</td><td>${esc(u ? (u.title || u.ord) : '')}</td><td>${nm[r.step] || r.step}</td><td>${r.total ? r.score + '/' + r.total : '-'}</td></tr>`; }).join('')}</table>` : ''}
     <h3>다시 확인할 단어</h3>
     ${weak.length ? `<table class="wt"><tr><th>단어</th><th>뜻</th><th>틀림</th></tr>${weak.slice(0, 20).map(w => `<tr><td>${esc(w.word)}</td><td>${esc(w.meaning)}</td><td>${w.wrong}</td></tr>`).join('')}</table>` : '<p>최근 틀린 단어가 없어요. 아주 잘하고 있어요!</p>'}
     <div class="cm"><b>원장님 한마디</b><div class="lines"></div></div>`;
@@ -255,6 +265,8 @@ function vtSettingsForm(c, start, bk) {
     <div><label>시작 ${school ? '과' : '유닛'} 번호</label><input type="number" data-k="start" min="1" value="${start}"></div>
     <div><label class="pick"><input type="checkbox" data-k="first_letter" ${c.first_letter ? 'checked' : ''}> 철자 쓰기에 첫 글자 힌트</label><div class="tiny">초등 저학년·처음 시작하는 학생에게 권해요</div></div>
     <div><label class="pick"><input type="checkbox" data-k="speak" ${c.speak ? 'checked' : ''}> 따라 말하기 버튼 보이기</label></div>
+    <div><label class="pick"><input type="checkbox" data-k="prev_review" ${c.prev_review !== false ? 'checked' : ''}> 새 ${school ? '과' : '유닛'} 전에 앞 ${school ? '과' : '유닛'} 가볍게 복습</label><div class="tiny">1 학습 → 2 시작 전 1 복습 → 2 학습 → 3 시작 전 2 복습…</div></div>
+    <div><label>앞 복습 단어 수</label><input type="number" data-k="prev_n" min="3" max="30" value="${c.prev_n ?? 10}"></div>
     <div><label class="pick"><input type="checkbox" data-k="sequential" ${c.sequential ? 'checked' : ''}> ${school ? '과' : '유닛'}을 순서대로 열기</label><div class="tiny">${school ? '내신 대비는 꺼 두면 시험 범위 과를 바로 공부해요' : '앞 유닛을 통과해야 다음 유닛이 열려요'}</div></div></div>`;
 }
 function vtReadSettings(root) {
@@ -262,6 +274,7 @@ function vtReadSettings(root) {
   const num = (k, d, lo, hi) => { const v = parseInt(g(k).value, 10); return isNaN(v) ? d : Math.max(lo, Math.min(hi, v)); };
   return {
     settings: { pass_pct: num('pass_pct', 90, 50, 100), units_per_day: num('units_per_day', 1, 0, 10), review_cap: num('review_cap', 40, 10, 200), first_letter: g('first_letter').checked, speak: g('speak').checked,
+      prev_review: g('prev_review').checked, prev_n: num('prev_n', 10, 3, 30),
       sequential: g('sequential').checked, only: [...root.querySelectorAll('[data-only]:checked')].map(i => +i.value).sort((x, y) => x - y) },
     start: num('start', 1, 1, 999)
   };
@@ -284,9 +297,10 @@ function vtBooks() {
   const groups = `<div class="vt-track"><h2><span class="vkind level">레벨 어휘</span> C~J · 초3~중3</h2>${lvG || '<p class="muted">아직 레벨 단어장이 없어요.</p>'}</div>
     <div class="vt-track"><h2><span class="vkind school">내신</span> 교과어휘 · 중1 · 중2 · 중3</h2>${scG || '<p class="muted">아직 내신 교과어휘가 없어요. 교과서·자습서의 과별 단어 목록(PDF·엑셀)을 올리면 과별로 만들어져요.</p>'}</div>`;
   $('#vb').innerHTML = `<div class="card"><div class="row between"><div><h2 style="margin:0">단어장</h2><div class="muted">엑셀·CSV·PDF를 올리면 유닛별 단어장이 만들어져요. 검수한 뒤 공개하면 학생이 볼 수 있어요.</div></div>
-      <div class="row"><button class="btn" id="imp">+ 파일로 새 단어장</button><button class="btn ghost" id="tpl">엑셀 양식 받기</button></div></div></div>
+      <div class="row"><button class="btn" id="imp">+ 파일로 새 단어장</button><button class="btn ghost" id="tpl">엑셀 양식 받기</button>${typeof vtImportEgu === 'function' && !VT.books.some(b => /EGU/i.test(b.title)) ? '<button class="btn ghost" id="egu">📗 EGU 1권 넣기</button>' : ''}</div></div></div>
     ${groups}`;
   $('#imp').onclick = () => vtImport();
+  if ($('#egu')) $('#egu').onclick = () => vtImportEgu();
   $('#tpl').onclick = () => vtTemplate();
   document.querySelectorAll('[data-bk]').forEach(b => b.onclick = () => { VT.bookId = b.dataset.bk; VT.unitId = null; vtBookEdit(b.dataset.bk); });
 }

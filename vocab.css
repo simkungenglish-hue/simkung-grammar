@@ -130,3 +130,12 @@
 .vkind.school { background: #eef3ff; color: #3a55a8; border: 1px solid #d5def7; }
 .vt-track { margin-top: 6px; }
 .vt-track > h2 { margin: 18px 0 4px; }
+
+/* ---- 14단계: 품사 · 문장 · 학습 시간 ---- */
+.posgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px}
+.posgrid .choice{text-align:center;padding:12px 4px}
+.sentq{font-size:1.25rem;line-height:1.5}
+.tbar{display:flex;align-items:flex-end;gap:2px;height:30px}
+.tbar i{display:block;width:7px;background:#d4544b;border-radius:2px}
+tr.clk{cursor:pointer}tr.clk:hover{background:rgba(212,84,75,.06)}
+.wchip.okc{border-color:#2e9e5b;background:rgba(46,158,91,.1)}

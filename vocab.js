@@ -11,7 +11,11 @@ const V_STEPS = [
   ['test', '유닛 테스트', '통과하면 다음 유닛이 열려요']
 ];
 const V_STEP_NAME = Object.fromEntries(V_STEPS.map(s => [s[0], s[1]]));
-const V_ICON = { look: '👀', memorize: '🧠', check: '✅', write: '✏️', match: '🧩', test: '🏁' };
+const V_ICON = { look: '👀', memorize: '🧠', check: '✅', write: '✏️', match: '🧩', test: '🏁', prev: '🔁', pos: '🏷️', sent: '📝', exam: '📝' };
+// 선택 연습 (순서 없이 언제든): 품사 맞추기 · 문장 빈칸
+const V_EXTRA = [['pos', '품사 맞추기', '단어의 품사(명사·동사…)를 골라요'], ['sent', '문장 빈칸', '문장 속 빈칸에 알맞은 단어를 써요']];
+V_STEP_NAME.prev = '앞 유닛 복습'; V_STEP_NAME.pos = '품사 맞추기'; V_STEP_NAME.sent = '문장 빈칸'; V_STEP_NAME.exam = '시험';
+const V_POS = ['명사', '동사', '형용사', '부사', '전치사', '대명사', '접속사', '조동사', '감탄사'];
 const VS = { ok: false, asg: [], books: [], units: [], items: [], prog: [], ustat: [], srs: [], rlog: [], days: new Set() };
 
 function kstToday() { return new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10); }
@@ -24,6 +28,7 @@ function vCfg(a) {
   const s = (a && a.settings) || {};
   const bk = a && typeof vBook === 'function' ? vBook(a.book_id) : null, school = !!(bk && bk.kind === 'school');
   return { pass_pct: s.pass_pct ?? 90, first_letter: !!s.first_letter, units_per_day: s.units_per_day ?? (school ? 0 : 1), review_cap: s.review_cap ?? 40, speak: s.speak !== false,
+    prev_review: s.prev_review !== false, prev_n: s.prev_n ?? 10,
     sequential: s.sequential ?? !school, only: Array.isArray(s.only) && s.only.length ? s.only.map(Number) : null };
 }
 function vBookLabel(bk) {
@@ -42,7 +47,29 @@ const TTS = {
     this.voice = vs.find(v => /en[-_]US/i.test(v.lang) && /Samantha|Google|Natural|Jenny|Aria/i.test(v.name)) || vs.find(v => /en[-_]US/i.test(v.lang)) || vs.find(v => /^en/i.test(v.lang)) || null;
     return this.voice;
   },
+  map: new Map(),            // 영어 문장 → AI 음성 파일 (EGU 같은 음성 파일이 있는 교재)
+  au: null,
+  key(t) { return String(t || '').toLowerCase().replace(/[’‘]/g, "'").replace(/\s+/g, ' ').trim(); },
+  unlock() {                 // 아이폰은 첫 터치에서 소리 장치를 열어 둬야 나중에 자동으로 재생돼요
+    if (this.au) return;
+    this.au = new Audio(); this.au.preload = 'auto';
+    try { this.au.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA='; const p = this.au.play(); if (p && p.catch) p.catch(() => {}); } catch (e) { /* 괜찮아요 */ }
+  },
+  play(url, rate, fallback) {
+    try {
+      this.unlock(); if ('speechSynthesis' in window) speechSynthesis.cancel();
+      const a = this.au; a.onerror = () => fallback && fallback();
+      a.src = url; a.playbackRate = rate >= 1 ? 1 : 0.9;
+      const p = a.play(); if (p && p.catch) p.catch(() => fallback && fallback());
+    } catch (e) { if (fallback) fallback(); }
+  },
   say(text, rate = 0.9) {
+    if (!text) return;
+    const url = this.map.get(this.key(text));
+    if (url) return this.play(url, rate, () => this.speak(text, rate));
+    this.speak(text, rate);
+  },
+  speak(text, rate = 0.9) {
     if (!('speechSynthesis' in window) || !text) return;
     try {
       speechSynthesis.cancel();
@@ -53,6 +80,7 @@ const TTS = {
   }
 };
 if ('speechSynthesis' in window) speechSynthesis.onvoiceschanged = () => TTS.pick();
+document.addEventListener('pointerdown', () => TTS.unlock(), { once: true, capture: true });
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition || null;
 
 /* ---------- 데이터 ---------- */
@@ -89,8 +117,19 @@ async function loadVocab() {
     VS.books = b.data || []; VS.units = un; VS.items = it; VS.prog = pr; VS.ustat = us; VS.srs = sr; VS.rlog = rl.data || [];
     VS.days = new Set(an.map(x => kstDay(x.submitted_at)).concat(VS.rlog.map(r => r.day)));
     VS.asg = VS.asg.filter(x => VS.books.some(bk => bk.id === x.book_id));
+    vBuildAudio();
     if (typeof loadGame === 'function') await loadGame();
   } catch (e) { VS.ok = false; VS.err = e; }
+}
+// 음성 파일이 있는 교재(audio_base)는 단어·표현·예문을 사람 같은 AI 음성으로 들려줘요
+function vBuildAudio(extra) {
+  const base = id => { const u = VS.units.find(x => x.unit_id === id || x.id === id); const b = u && VS.books.find(k => k.id === u.book_id); return b && b.audio_base || ''; };
+  for (const it of VS.items.concat(extra || [])) {
+    const b = it.audio_base || base(it.unit_id); if (!b) continue;
+    if (it.audio_word) TTS.map.set(TTS.key(it.word), b + it.audio_word + '.mp3');
+    if (it.audio_phrase && it.phrase) TTS.map.set(TTS.key(it.phrase), b + it.audio_phrase + '.mp3');
+    if (it.audio_example && it.example) TTS.map.set(TTS.key(it.example), b + it.audio_example + '.mp3');
+  }
 }
 const vBook = id => VS.books.find(b => b.id === id);
 const vUnit = id => VS.units.find(u => u.id === id);
@@ -139,8 +178,17 @@ function vNextUnit(a) {
   for (const u of vUnitList(a)) { const s = vUnitState(a, u); if (s === 'doing' || s === 'open' || s === 'tomorrow') return { u, s }; }
   return null;
 }
+// 앞 유닛 복습: 앞에서 공부한 유닛이 있으면 새 유닛 시작 전에 가볍게 복습해요 (1복습 → 2학습 → 2복습 → 3학습)
+function vPrevUnit(unitId) {
+  const a = vAsgOfUnit(unitId); if (!a || !vCfg(a).prev_review) return null;
+  const list = vUnitList(a), i = list.findIndex(u => u.id === unitId);
+  for (let k = i - 1; k >= 0; k--) if (VS.prog.some(x => x.unit_id === list[k].id && x.step !== 'prev') && vItems(list[k].id).length >= 3) return list[k];
+  return null;
+}
+const vPrevNeeded = unitId => !!vPrevUnit(unitId) && !vProg(unitId, 'prev') && !vProg(unitId, 'look');
 function vStepOpen(unitId, step) {
   const i = V_STEPS.findIndex(s => s[0] === step);
+  if (i === 0) return !vPrevNeeded(unitId);
   if (i <= 0) return true;
   if (step === 'test') return !!vProg(unitId, 'match') || !!vProg(unitId, 'test');
   return !!vProg(unitId, V_STEPS[i - 1][0]);
@@ -192,12 +240,15 @@ function vocabHome() {
       <div class="goal ${goalRev ? 'done' : ''}"><span>${goalRev ? '✓' : '○'}</span> 복습 다 하기 ${due.length ? `<b class="vred">(${due.length}개 남음)</b>` : ''}</div>
       <div class="goal ${passedToday ? 'done' : ''}"><span>${passedToday ? '✓' : '○'}</span> 새 유닛 통과하기</div>
       ${due.length ? `<button class="btn" id="rev" style="margin-top:10px;width:100%">🔁 오늘의 복습 시작 (${Math.min(due.length, Math.max(...VS.asg.map(a => vCfg(a).review_cap)))}개)</button>` : '<div class="tiny" style="margin-top:6px">오늘 복습할 단어가 없어요. 새 유닛을 공부해요!</div>'}
-    </div>${typeof gHomePanel === 'function' ? gHomePanel() : ''}${books}
+    </div>${typeof gHomePanel === 'function' ? gHomePanel() : ''}<div id="vexams"></div>${books}
+    <div class="row" style="justify-content:center;margin:10px 0"><button class="btn ghost" id="vwn">📒 내 오답노트</button></div>
     <p class="tiny">틀린 단어는 1일 → 3일 → 7일 → 14일 → 30일 뒤에 다시 나와요. 오래 기억에 남도록 도와줘요.</p>`);
   $('#back').onclick = e => { e.preventDefault(); studentHome(); };
   if ($('#rev')) $('#rev').onclick = () => vReviewStart();
   document.querySelectorAll('[data-unit]').forEach(b => b.onclick = () => vUnitHome(b.dataset.unit));
   if (typeof gBindHome === 'function') { gBindHome(); gRefreshPanel(); }
+  if ($('#vwn')) $('#vwn').onclick = () => vWrongNote();
+  vExamBox();
 }
 
 /* ---------- 유닛 홈 (6단계) ---------- */
@@ -213,9 +264,18 @@ function vUnitHome(unitId) {
     return `<div class="vstep ${open ? '' : 'locked'} ${p ? 'done' : ''}"><div class="vs-ic">${V_ICON[k]}</div><div class="vs-t"><b>${n}</b><div class="tiny">${d}</div>${badge}</div>
       <button class="btn small ${p ? 'ghost' : ''}" data-step="${k}" ${open ? '' : 'disabled'}>${open ? (p ? '다시' : '시작') : '🔒'}</button></div>`;
   }).join('');
+  const pu = vPrevUnit(unitId), pp = vProg(unitId, 'prev');
+  const prevRow = pu ? `<div class="vstep ${pp ? 'done' : ''}"><div class="vs-ic">${V_ICON.prev}</div><div class="vs-t"><b>앞 유닛 복습 · ${esc(vUnitName(pu))}</b><div class="tiny">앞에서 배운 단어를 가볍게 복습하고 시작해요</div>${pp ? `<span class="badge ok">✓ ${pp.score}/${pp.total}</span>` : '<span class="badge gray">먼저 하기</span>'}</div>
+      <button class="btn small ${pp ? 'ghost' : ''}" data-step="prev">${pp ? '다시' : '시작'}</button></div>` : '';
+  const hasPos = items.some(i => (i.pos_list || []).length), hasSent = items.some(i => i.sent_blank && i.sent_answer);
+  const extraRows = V_EXTRA.filter(([k]) => k === 'pos' ? hasPos : hasSent).map(([k, n, d]) => {
+    const p = vProg(unitId, k);
+    return `<div class="vstep ${p ? 'done' : ''}"><div class="vs-ic">${V_ICON[k]}</div><div class="vs-t"><b>${n} <span class="tiny">(선택)</span></b><div class="tiny">${d}</div>${p ? `<span class="badge ok">✓ ${p.score}/${p.total}</span>` : ''}</div>
+      <button class="btn small ${p ? 'ghost' : ''}" data-step="${k}">${p ? '다시' : '시작'}</button></div>`;
+  }).join('');
   shell(`<p><a href="#" id="back">← 어휘 홈</a></p>
     <h1>${esc(vUnitName(u))} <span class="tiny">${items.length}개</span></h1>
-    <div class="card"><div class="vsteps">${rows}</div>
+    <div class="card"><div class="vsteps">${prevRow}${rows}${extraRows}</div>
     <p class="tiny" style="margin-top:10px">테스트에서 ${vCfg(a).pass_pct}% 이상 맞히면 통과예요.</p></div>`);
   $('#back').onclick = e => { e.preventDefault(); vocabHome(); };
   document.querySelectorAll('[data-step]').forEach(b => b.onclick = () => vStartStep(unitId, b.dataset.step));
@@ -223,8 +283,9 @@ function vUnitHome(unitId) {
 function vStartStep(unitId, step) {
   const items = vItems(unitId);
   if (!items.length) return toast('아직 단어가 없어요');
+  if (step === 'look' && vPrevNeeded(unitId)) return vPrevReview(unitId);
   AT.start();
-  ({ look: vLook, memorize: vMemo, check: vCheck, write: vWrite, match: vMatch, test: vTest })[step](unitId, items);
+  ({ look: vLook, memorize: vMemo, check: vCheck, write: vWrite, match: vMatch, test: vTest, prev: () => vPrevReview(unitId), pos: () => vExtra(unitId, 'pos', items), sent: () => vExtra(unitId, 'sent', items) })[step](unitId, items);
 }
 async function vStepDone(unitId, step, score, total, bestMs) {
   try {
@@ -333,6 +394,10 @@ function vChoices(it, items, dir) {
   return shuffle([it[key], ...pick]);
 }
 async function vSend(it, step, dir, answer, runId, cid) {
+  if (step === 'exam') {
+    const { data, error } = await S.sb.rpc('vocab_exam_submit', { p_client: cid, p_exam: VX.cur.id, p_run: runId, p_item: it.id, p_dir: dir, p_answer: answer });
+    if (error) throw error; VS.days.add(kstToday()); return data;
+  }
   const { data, error } = await S.sb.rpc('vocab_submit', { p_client: cid, p_item: it.id, p_step: step, p_dir: dir, p_answer: answer, p_run: runId || null });
   if (error) throw error;
   if ((step === 'test' || step === 'review') && data && data.box) {
@@ -374,9 +439,9 @@ function vQuiz(opt) {
     const willAgain = Q.out && !Q.out.is_correct && opt.requeue && !x.again;
     const btn = Q.out ? (Q.retype ? '' : `<button class="btn" id="nx" style="width:100%">${Q.i < Q.list.length - 1 || willAgain ? '다음' : '마치기'}</button>`)
       : x.mode === 'type' ? '<button class="btn" id="go" style="width:100%">확인</button>' : '';
-    shell(`${opt.unitId ? vTop(opt.unitId, opt.step, Q.done, Q.total) : `<p><a href="#" id="back">← 어휘 홈</a></p><div class="row between"><b>🔁 오늘의 복습</b><span class="tiny">${Q.done} / ${Q.total}</span></div><div class="progress" style="margin:8px 0 14px"><i style="width:${Q.done / Q.total * 100}%"></i></div>`}
+    shell(`${opt.unitId ? vTop(opt.unitId, opt.step, Q.done, Q.total) : `<p><a href="#" id="back">← ${opt.backUnit ? '유닛으로' : '어휘 홈'}</a></p><div class="row between"><b>${esc(opt.title || '🔁 오늘의 복습')}</b><span class="tiny">${Q.done} / ${Q.total}</span></div><div class="progress" style="margin:8px 0 14px"><i style="width:${Q.done / Q.total * 100}%"></i></div>`}
       <div class="card vq">${body}</div>${btn}`);
-    vBack(opt.unitId); vBindSpk();
+    vBack(opt.unitId || opt.backUnit); vBindSpk();
     document.querySelectorAll('.choice').forEach(b => b.onclick = () => submit(b.dataset.c));
     const inp = $('#ans');
     if (inp) {
@@ -398,7 +463,7 @@ function vQuiz(opt) {
       const r = await vSend(x.it, opt.step, x.dir, ans, Q.runId, Q.cid);
       Q.out = r; Q.cid = null; Q.busy = false;
       if (!Q.res.has(x.it.id)) Q.res.set(x.it.id, { it: x.it, ok: r.is_correct, ans });
-      if (!r.is_correct && x.mode === 'type' && opt.step !== 'test') Q.retype = true;
+      if (!r.is_correct && x.mode === 'type' && opt.step !== 'test' && opt.step !== 'exam') Q.retype = true;
       if (r.is_correct || !opt.requeue || x.again) Q.done++;
       draw();
     } catch (e) { Q.busy = false; toast(errText(e), 4000); }
