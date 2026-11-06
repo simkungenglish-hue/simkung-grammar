@@ -678,11 +678,22 @@ function bindAccounts() {
       await loadTeacher(); tabAccounts();
     } catch (e) { toast(e.message, 5000); btn.disabled = false; }
   };
-  document.querySelectorAll('[data-rp]').forEach(b => b.onclick = async () => {
-    const s = T.sById[b.dataset.rp], pw = genPw();
-    if (!confirm(`${s.name} 학생의 비밀번호를 새로 정할까요?\n(기존 비밀번호는 못 쓰게 돼요)`)) return;
-    try { await callManage({ action: 'reset', user_id: s.id, password: pw }); credModal('새 비밀번호예요 · ' + s.name, '(기존 아이디 그대로)', pw); }
-    catch (e) { toast(e.message, 5000); }
+  document.querySelectorAll('[data-rp]').forEach(b => b.onclick = () => {
+    const s = T.sById[b.dataset.rp];
+    const m = modal(`<h2>비밀번호 다시 정하기 · ${esc(s.name)}</h2>
+      <p>학생이 입력하기 쉬운 비밀번호를 직접 적어 주세요. (6자 이상) 기존 비밀번호는 못 쓰게 돼요.</p>
+      <div class="row" style="flex-wrap:nowrap"><input type="text" id="rpw" autocomplete="off" placeholder="새 비밀번호 (6자 이상)" style="flex:1"><button class="btn ghost small" id="rgen" type="button">자동 생성</button></div>
+      <div class="row" style="margin-top:14px"><button class="btn" id="rok">비밀번호 바꾸기</button><button class="btn ghost" id="rno">취소</button></div>`);
+    $('#rpw').focus();
+    $('#rgen').onclick = () => { $('#rpw').value = genPw(); };
+    $('#rno').onclick = () => m.remove();
+    $('#rok').onclick = async () => {
+      const pw = $('#rpw').value.trim();
+      if (pw.length < 6) return toast('비밀번호는 6자 이상으로 적어 주세요');
+      const btn = $('#rok'); btn.disabled = true;
+      try { await callManage({ action: 'reset', user_id: s.id, password: pw }); m.remove(); credModal('새 비밀번호예요 · ' + s.name, '(기존 아이디 그대로)', pw); }
+      catch (e) { toast(e.message, 5000); btn.disabled = false; }
+    };
   });
   document.querySelectorAll('[data-dl]').forEach(b => b.onclick = async () => {
     const s = T.sById[b.dataset.dl];
