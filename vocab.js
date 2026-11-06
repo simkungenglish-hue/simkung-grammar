@@ -466,6 +466,11 @@ function vQuiz(opt) {
       if (!r.is_correct && x.mode === 'type' && opt.step !== 'test' && opt.step !== 'exam') Q.retype = true;
       if (r.is_correct || !opt.requeue || x.again) Q.done++;
       draw();
+      // 보기 고르기는 다음 버튼 없이 자동으로 넘어가요 (맞으면 빨리, 틀리면 정답을 볼 시간을 조금 더)
+      if (x.mode === 'choice') {
+        const at = Q.i;
+        setTimeout(() => { if (Q.i === at && Q.out) next(); }, r.is_correct ? 700 : 1800);
+      }
     } catch (e) { Q.busy = false; toast(errText(e), 4000); }
   };
   const retype = v => { const x = Q.list[Q.i]; if (vNorm(v) === vNorm(x.it.word)) { Q.retype = false; toast(x.again ? '좋아요! 이제 기억해요' : '좋아요! 다음에 한 번 더 나와요'); next(); } else toast('정답과 똑같이 써 보세요'); };
