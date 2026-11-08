@@ -108,10 +108,36 @@ async function teacherStart() {
 }
 function drawTeacher() {
   shell(`<div class="tshell"><nav class="side noprint">${TABS.map(([k, n]) => `<button class="tab ${T.tab === k ? 'on' : ''}" data-t="${k}">${tabIcon(k)}<span class="tn">${n}</span>${k === 'review' ? reviewBadge() : ''}</button>`).join('')}</nav><div id="tb" class="tmain"></div></div>`,
-    `<span class="live noprint"><i class="dot ${T.live ? 'on' : 'off'}" id="liveDot"></i><span id="liveTxt">${T.live ? '실시간 연결' : '연결 안 됨 · 30초마다 갱신'}</span></span>`);
+    `<button class="btn small noprint" id="btnPv" title="학생 화면을 직접 체험해 봐요">👀 학생 체험</button> <span class="live noprint"><i class="dot ${T.live ? 'on' : 'off'}" id="liveDot"></i><span id="liveTxt">${T.live ? '실시간 연결' : '연결 안 됨 · 30초마다 갱신'}</span></span>`);
   const w = $('#main'); if (w) w.classList.add('wide');
+  const pvb = $('#btnPv'); if (pvb) pvb.onclick = pvPick;
   document.querySelectorAll('[data-t]').forEach(b => b.onclick = () => { T.tab = b.dataset.t; drawTeacher(); });
   renderTab();
+}
+/* 학생 체험: 학생을 골라 그 학생 화면으로 들어가요. 끝나면 위쪽 노란 줄의 「교사관리로 돌아가기」를 눌러요 */
+function pvPick() {
+  const list = (T.students || []).slice().sort((x, y) => (/^가상/.test(y.name || '') ? 1 : 0) - (/^가상/.test(x.name || '') ? 1 : 0));
+  if (!list.length) return toast('학생이 아직 없어요');
+  const m = modal(`<h2>👀 학생 체험</h2>
+    <p>고른 학생의 화면으로 바뀌어요. 끝나면 위쪽 노란 줄의 <b>교사관리로 돌아가기</b>를 누르면 돼요. (다시 로그인할 필요 없어요)</p>
+    <label>체험할 학생</label><select id="pvs">${list.map(s => `<option value="${s.id}">${esc(s.name)}${s.grade ? ' · ' + esc(s.grade) : ''}</option>`).join('')}</select>
+    <p class="tiny" id="pvw" style="margin-top:8px"></p>
+    <div class="row" style="margin-top:14px"><button class="btn" id="pvgo">체험 시작</button><button class="btn ghost" id="pvno">취소</button></div>`);
+  const warn = () => { const s = T.sById[$('#pvs').value]; $('#pvw').innerHTML = s && /^가상/.test(s.name || '') ? '체험용 가상 학생이라 마음껏 풀어 봐도 돼요.' : '⚠ 진짜 학생 계정이에요. 문제를 풀면 그 학생의 학습 기록에 저장돼요. 둘러보기만 하세요.'; };
+  $('#pvs').onchange = warn; warn();
+  $('#pvno').onclick = () => m.remove();
+  $('#pvgo').onclick = async () => {
+    const btn = $('#pvgo'); btn.disabled = true;
+    try {
+      const { data: ss } = await S.sb.auth.getSession();
+      const ses = ss && ss.session; if (!ses) throw new Error('로그인이 풀렸어요. 다시 로그인해 주세요.');
+      const r = await callManage({ action: 'impersonate', user_id: $('#pvs').value });
+      localStorage.setItem(PV_KEY, JSON.stringify({ a: ses.access_token, r: ses.refresh_token }));
+      const { error } = await S.sb.auth.verifyOtp({ token_hash: r.token_hash, type: 'magiclink' });
+      if (error) { localStorage.removeItem(PV_KEY); throw error; }
+      location.reload();
+    } catch (e) { toast(e.message || String(e), 5000); btn.disabled = false; }
+  };
 }
 function reviewBadge() { const n = T.attempts.filter(a => a.status === 'needs_review').length; return n ? ` <span class="badge bad">${n}</span>` : ''; }
 function renderTab() {

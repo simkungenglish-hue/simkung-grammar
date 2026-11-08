@@ -77,11 +77,29 @@ function stageCount(asg, stage) { const c = cfgOf(asg); return c.stage_counts[st
 const S = { sb: null, user: null, profile: null };
 const app = () => $('#app');
 
+/* ---------- 원장님 학생 체험: 학생 화면으로 잠깐 들어갔다가 교사관리로 돌아오기 ---------- */
+const PV_KEY = 'sk_preview_return';
+function pvGet() { try { return JSON.parse(localStorage.getItem(PV_KEY) || 'null'); } catch (e) { return null; } }
+async function pvExit() {
+  const r = pvGet();
+  try { localStorage.removeItem(PV_KEY); } catch (e) {}
+  try {
+    if (r && r.a && r.r) {
+      const { error } = await S.sb.auth.setSession({ access_token: r.a, refresh_token: r.r });
+      if (error) await S.sb.auth.signOut({ scope: 'local' });
+    } else await S.sb.auth.signOut({ scope: 'local' });
+  } catch (e) {}
+  location.reload();
+}
 function shell(inner, extraTop = '') {
   const p = S.profile;
+  const pv = pvGet() && p && p.role !== 'teacher' ? pvGet() : null;
   const nm = p ? String(p.name || '') : '';
   const who = nm ? (p.role === 'teacher' && !/원장/.test(nm) ? nm + ' 원장님' : nm) : '';
-  app().innerHTML = `
+  const pvBar = pv ? `<div class="noprint" id="pvBar" style="position:sticky;top:0;z-index:50;background:#fff3cd;border-bottom:2px solid #f0b429;padding:8px 12px;display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;font-size:14px">
+    <span>👀 <b>학생 체험 중</b> · ${esc(nm)}${/^가상/.test(nm) ? '' : ' <span class="tiny">(푸는 문제는 이 학생 기록에 저장돼요)</span>'}</span>
+    <button class="btn small" id="pvBack">← 교사관리로 돌아가기</button></div>` : '';
+  app().innerHTML = pvBar + `
   <header class="topbar noprint">
     <div class="brand"><span class="logo"><svg viewBox="0 0 24 24" width="20" height="20" fill="#fff"><path d="M12 21s-7.5-4.6-9.6-9.2C.9 8.4 2.6 5 5.9 5c2 0 3.4 1.1 4.1 2.4C10.700 6.100 12.100 5 14.100 5c3.300 0 5 3.400 3.500 6.800C19.500 16.400 12 21 12 21z" transform="translate(0 -.5)"/></svg></span><div class="bt"><b>스텔라의 심쿵영어</b><small>어휘 · 문법 학습</small></div></div>
     <div class="tright">${extraTop}<span class="who">${esc(who)}</span>
@@ -89,7 +107,8 @@ function shell(inner, extraTop = '') {
       <button class="btn ghost small" id="btnOut">로그아웃</button></div>
   </header>
   <div class="wrap" id="main">${inner}</div>`;
-  $('#btnOut').onclick = async () => { if (!confirm('로그아웃할까요?\n(다음에 들어올 때 아이디·비밀번호를 다시 넣어야 해요)')) return; await S.sb.auth.signOut({ scope: 'local' }); location.reload(); };
+  if (pv) { const b = $('#pvBack'); if (b) b.onclick = pvExit; const pw = $('#btnPw'); if (pw) pw.style.display = 'none'; }
+  $('#btnOut').onclick = async () => { if (!confirm('로그아웃할까요?\n(다음에 들어올 때 아이디·비밀번호를 다시 넣어야 해요)')) return; try { localStorage.removeItem(PV_KEY); } catch (e) {} await S.sb.auth.signOut({ scope: 'local' }); location.reload(); };
   $('#btnPw').onclick = changePw;
 }
 async function changePw() {
