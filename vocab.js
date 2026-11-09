@@ -425,13 +425,38 @@ async function vSend(it, step, dir, answer, runId, cid) {
 }
 function vHintMask(word) { return String(word).split(' ').map(w => w ? w[0] + w.slice(1).replace(/[A-Za-z]/g, '_') : w).join(' '); }
 
-/* 문제 진행기: 뜻 고르기 · 철자 쓰기 · 테스트 · 복습이 함께 써요 */
+/* 답을 내고 나서 엔터·스페이스바를 누르면 「다음」 버튼이 눌려요 (칸에 글자를 쓰는 중이거나 버튼에 포커스가 있을 땐 빼고) */
+if (!window.__vqKeyBound) {
+  window.__vqKeyBound = true;
+  document.addEventListener('keydown', e => {
+    if (e.repeat || (e.key !== 'Enter' && e.key !== ' ')) return;
+    const t = e.target, tg = t && t.tagName;
+    if (tg === 'BUTTON' || tg === 'A' || ((tg === 'INPUT' || tg === 'TEXTAREA' || tg === 'SELECT') && !t.disabled)) return;
+    if (!document.querySelector('.card.vq')) return;
+    const nx = document.getElementById('nx') || document.getElementById('rvn');
+    if (!nx || nx.disabled) return;
+    if (Date.now() - (window.__vqOutAt || 0) < 350) return;      // 엔터를 꾹 눌러 피드백을 못 보고 넘어가는 일 막기
+    e.preventDefault(); nx.click();
+  });
+}
+/* 문제 진행기: 뜻 고르기 · 철자 쓰기 · 테스트 · 복습이 함께 써요
+   뒤로가기: 방금 지나간 문제를 최대 2문제 앞까지 다시 볼 수 있어요(보기만 — 점수는 바뀌지 않아요). 3문제 이상 앞은 막아요 */
 function vQuiz(opt) {
   // opt: {unitId, step, list:[{it, dir, mode:'choice'|'type'}], requeue, hint, onEnd(results), title, back}
-  const Q = { list: opt.list.slice(), i: 0, res: new Map(), sel: null, out: null, busy: false, cid: null, retype: false, total: opt.list.length, done: 0, runId: opt.runId };
+  const Q = { log: {}, rv: null, list: opt.list.slice(), i: 0, res: new Map(), sel: null, out: null, busy: false, cid: null, retype: false, total: opt.list.length, done: 0, runId: opt.runId };
   const items = opt.items || [];
   const draw = () => {
-    if (Q.i >= Q.list.length) return opt.onEnd(Q.res);
+    if (Q.rv != null && Q.log[Q.rv]) {                      // 지나간 문제 다시 보기(읽기 전용)
+      const sv = { i: Q.i, out: Q.out, sel: Q.sel, retype: Q.retype }, e = Q.log[Q.rv], front = Q.i;
+      Q.i = Q.rv; Q.out = e.out; Q.sel = e.sel; Q.retype = false;
+      try { drawOne(front); } finally { Q.i = sv.i; Q.out = sv.out; Q.sel = sv.sel; Q.retype = sv.retype; }
+      return;
+    }
+    Q.rv = null; drawOne(null);
+  };
+  const drawOne = front => {
+    const rvMode = front !== null;
+    if (!rvMode && Q.i >= Q.list.length) return opt.onEnd(Q.res);
     const x = Q.list[Q.i], it = x.it;
     const ask = x.dir === 'ko' ? `<div class="fc-word sm">${esc(it.word)} ${vSpk(it.word)}</div><div class="tiny">알맞은 뜻을 고르세요</div>`
       : `<div class="fc-mean big">${esc(it.meaning)}</div><div class="tiny">${x.mode === 'type' ? '영어로 써 보세요' : '알맞은 영어를 고르세요'}</div>`;
@@ -453,8 +478,12 @@ function vQuiz(opt) {
         : `<div class="result bad"><b>정답: ${esc(right)}</b>${x.dir === 'en' ? ` ${vSpk(it.word)}` : ''}${x.mode === 'type' && x.dir === 'en' && typeof gDiff === 'function' ? gDiff(Q.sel, it.word) + (it.spell_note ? `<div class="tiny">✏️ ${esc(it.spell_note)}</div>` : '') : ''}${it.phrase ? `<div class="tiny">기억 표현: ${esc(it.phrase)} (${esc(it.phrase_ko)})</div>` : ''}${Q.retype ? '<div class="tiny">아래 칸에 정답을 한 번 따라 써 보세요.</div>' : ''}</div>`;
     }
     const willAgain = Q.out && !Q.out.is_correct && opt.requeue && !x.again;
-    const btn = Q.out ? (Q.retype ? '' : `<button class="btn" id="nx" style="width:100%">${Q.i < Q.list.length - 1 || willAgain ? '다음' : '마치기'}</button>`)
+    const canBack = !rvMode ? (Q.i > 0 && !!Q.log[Q.i - 1] && !Q.retype) : (Q.i - 1 >= Math.max(0, front - 2) && !!Q.log[Q.i - 1]);
+    const backBtn = canBack ? `<button class="btn ghost small" id="pvq" style="margin-top:8px">← 이전 문제${rvMode ? '' : ' 보기'}</button>` : '';
+    let btn = Q.out ? (Q.retype ? '' : `<button class="btn" id="nx" style="width:100%">${Q.i < Q.list.length - 1 || willAgain ? '다음' : '마치기'}</button>`)
       : x.mode === 'type' ? '<button class="btn" id="go" style="width:100%">확인</button>' : '';
+    if (rvMode) btn = `<button class="btn" id="rvn" style="width:100%">${Q.i + 1 >= front ? '지금 문제로 →' : '다음 →'}</button>`;
+    btn += backBtn;
     shell(`${opt.unitId ? vTop(opt.unitId, opt.step, Q.done, Q.total) : `<p><a href="#" id="back">← ${opt.backUnit ? '유닛으로' : '어휘 홈'}</a></p><div class="row between"><b>${esc(opt.title || '🔁 오늘의 복습')}</b><span class="tiny">${Q.done} / ${Q.total}</span></div><div class="progress" style="margin:8px 0 14px"><i style="width:${Q.done / Q.total * 100}%"></i></div>`}
       <div class="card vq">${body}</div>${btn}`);
     vBack(opt.unitId || opt.backUnit); vBindSpk();
@@ -467,7 +496,11 @@ function vQuiz(opt) {
     }
     if ($('#go')) $('#go').onclick = () => submit(inp.value);
     if ($('#nx')) $('#nx').onclick = next;
-    if (Q.out && Q.out.is_correct && x.dir === 'en') TTS.say(it.word);
+    const cur = Q.i;       // 다시 보기 중에는 Q.i를 잠깐 바꿔 쓰므로, 지금 보는 번호를 따로 기억해 둬요
+    if ($('#rvn')) $('#rvn').onclick = () => { Q.rv = cur + 1 >= front ? null : cur + 1; draw(); };
+    if ($('#pvq')) $('#pvq').onclick = () => { Q.rv = cur - 1; draw(); };
+    if ($('#nx') || $('#rvn')) window.__vqOutAt = Date.now();
+    if (!rvMode && Q.out && Q.out.is_correct && x.dir === 'en') TTS.say(it.word);
   };
   const submit = async ans => {
     if (Q.busy || Q.out) return;
@@ -478,6 +511,7 @@ function vQuiz(opt) {
     try {
       const r = await vSend(x.it, opt.step, x.dir, ans, Q.runId, Q.cid);
       Q.out = r; Q.cid = null; Q.busy = false;
+      Q.log[Q.i] = { out: r, sel: ans };
       if (!Q.res.has(x.it.id)) Q.res.set(x.it.id, { it: x.it, ok: r.is_correct, ans });
       if (!r.is_correct && x.mode === 'type' && opt.step !== 'test' && opt.step !== 'exam') Q.retype = true;
       if (r.is_correct || !opt.requeue || x.again) Q.done++;
@@ -485,7 +519,7 @@ function vQuiz(opt) {
       // 보기 고르기는 다음 버튼 없이 자동으로 넘어가요 (맞으면 빨리, 틀리면 정답을 볼 시간을 조금 더)
       if (x.mode === 'choice') {
         const at = Q.i;
-        setTimeout(() => { if (Q.i === at && Q.out) next(); }, r.is_correct ? 700 : 1800);
+        setTimeout(() => { if (Q.i === at && Q.out && Q.rv == null) next(); }, r.is_correct ? 700 : 1800);
       }
     } catch (e) { Q.busy = false; toast(errText(e), 4000); }
   };
@@ -493,7 +527,7 @@ function vQuiz(opt) {
   const next = () => {
     const x = Q.list[Q.i];
     if (Q.out && !Q.out.is_correct && opt.requeue && !x.again) Q.list.push({ ...x, again: true, ch: null });
-    Q.i++; Q.out = null; Q.sel = null; Q.retype = false; draw();
+    Q.rv = null; Q.i++; Q.out = null; Q.sel = null; Q.retype = false; draw();
   };
   draw();
 }
