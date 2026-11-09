@@ -84,7 +84,7 @@ async function tabPassage() {
     tb.innerHTML = `<div class="card"><h2>본문 학습을 켜려면 DB 업데이트가 필요해요</h2><p>설치 안내서의 <b>12단계 업데이트</b>대로 <code>schema12_passage.sql</code> 을 실행해 주세요.</p><p class="tiny">${esc(errText(PT.err))}</p></div>`;
     return;
   }
-  const subs = [['now', '현황'], ['assign', '배정'], ['list', '본문'], ['print', '인쇄']];
+  const subs = [['now', '현황'], ['list', '본문'], ['print', '인쇄']];
   tb.innerHTML = `<div class="vsubs noprint">${subs.map(([k, n]) => `<button class="seg ${PT.sub === k ? 'on' : ''}" data-ps="${k}">${n}</button>`).join('')}
     <button class="btn ghost small" id="prl" style="margin-left:auto">새로고침</button></div><div id="pb"></div>`;
   document.querySelectorAll('[data-ps]').forEach(b => b.onclick = () => { PT.sub = b.dataset.ps; if (PT.sub !== 'list') PT.edit = null; if (PT.sub === 'now') PT.loaded = false; tabPassage(); });

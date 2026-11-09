@@ -55,7 +55,7 @@ async function tabVocab() {
       <p class="tiny">${esc(errText(VT.err))}</p></div>`;
     return;
   }
-  const subs = [['now', '현황'], ['time', '학습 시간'], ['assign', '배정'], ['books', '단어장'], ['exam', '📝 시험'], ['wrong', '오답관리']].concat(typeof vtAI === 'function' ? [['ai', '🤖 AI 자동 만들기'], ['game', '게임·칭찬']] : []).concat([['print', '시험지 인쇄']]);
+  const subs = [['now', '현황'], ['time', '학습 시간'], ['books', '단어장'], ['exam', '📝 시험'], ['wrong', '오답관리']].concat(typeof vtAI === 'function' ? [['ai', '🤖 AI 자동 만들기'], ['game', '게임·칭찬']] : []).concat([['print', '시험지 인쇄']]);
   tb.innerHTML = `<div class="vsubs noprint">${subs.map(([k, n]) => `<button class="seg ${VT.sub === k ? 'on' : ''}" data-vs="${k}">${n}</button>`).join('')}
     <button class="btn ghost small" id="vrl" style="margin-left:auto">새로고침</button></div><div id="vb"></div>`;
   document.querySelectorAll('[data-vs]').forEach(b => b.onclick = () => { VT.sub = b.dataset.vs; VT.bookId = VT.sub === 'books' ? VT.bookId : null; if (VT.sub === 'now') VT.loaded = false; tabVocab(); });
