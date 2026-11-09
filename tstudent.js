@@ -17,6 +17,10 @@ const stuMin = sec => { const m = Math.round((sec || 0) / 60); return m <= 0 ? (
   .sgcur{font-size:12px;color:#475569;margin:1px 0 4px 2px}
   .scard[data-stucard]{cursor:pointer}
   .stuopen{margin-top:8px;width:100%}
+  .scard .sm,.scard .sf button{display:none}
+  .sgline{display:flex;flex-wrap:wrap;gap:6px;margin:2px 0}
+  .sgchip{font-size:12px;font-weight:700;padding:3px 9px;border-radius:99px;background:#eef2ff;color:#4338ca}
+  .sgchip.zero{background:#f1f5f9;color:#94a3b8;font-weight:600}
   .stu-a{margin-bottom:10px}
   .stu-a h3{margin:0}
   .spill{display:inline-flex;align-items:center;gap:3px;padding:3px 9px;border-radius:99px;font-size:12px;font-weight:700;background:#f1f5f9;color:#64748b;border:1px solid #e2e8f0}
@@ -81,22 +85,12 @@ function stuPassInfo(sid) {
 }
 const stuUnitName = u => (u.title || ('Unit ' + u.ord)).replace(/\s+/g, ' ').slice(0, 24);
 
-/* ---------- ① 오늘 현황 카드: 어휘 · 문법 · 내신 한눈에 ---------- */
-const _progressRows = progressRows;
+/* ---------- ① 오늘 현황 카드: 등록된 학생만 간단히 (자세한 건 학생 화면에서) ---------- */
 progressRows = function (sid) {
-  let v = '', p = '';
-  try {
-    v = stuVocabInfo(sid).map(x => {
-      const cur = x.cur ? `<div class="sgcur">지금: <b>${esc(vtUnitWord(x.bk) === '과' ? x.cur.unit.ord + '과' : 'Unit ' + x.cur.unit.ord)}</b> · ${x.cur.next ? esc(SV_STEP[x.cur.next] || x.cur.next) + ` (${x.cur.done.length}/${x.cur.steps.length}단계)` : '단계 모두 완료'}</div>` : '<div class="sgcur">모든 유닛 통과 🎉</div>';
-      return `<div class="prow"><div class="ph"><div class="phl"><b>${esc(x.bk.title)}</b></div><span class="${x.cur ? '' : 'ok'}">${x.passed}/${x.us.length} 통과</span></div>${cur}</div>`;
-    }).join('');
-    p = stuPassInfo(sid).map(x => `<div class="prow"><div class="ph"><div class="phl"><b>${esc(x.p.title)}</b></div><span class="${x.total && x.done.length >= x.total ? 'ok' : ''}">${x.done.length}${x.total ? '/' + x.total : ''}단계</span></div></div>`).join('');
-  } catch (e) { /* 어휘·본문 정보가 없어도 문법 칸은 보여요 */ }
-  const loading = !STU.loaded ? '<div class="sgcur">어휘·본문 불러오는 중…</div>' : '';
-  return `<div class="sgsec">📘 어휘</div>${v || loading || '<div class="prow none">배정된 단어장이 없어요</div>'}
-    <div class="sgsec">📗 문법</div>${_progressRows(sid)}
-    ${p ? `<div class="sgsec">📖 내신 본문</div>${p}` : ''}
-    <i data-sid="${sid}" hidden></i><button class="btn small ghost stuopen" data-stuopen="${sid}">👤 학생 화면 · 배정·설정</button>`;
+  let v = 0, g = (T.asg || []).filter(a => a.student_id === sid).length, p = 0;
+  try { v = stuVocabInfo(sid).length; p = stuPassInfo(sid).length; } catch (e) { /* 정보가 없어도 카드는 보여요 */ }
+  const chip = (ic, n, un) => `<span class="sgchip ${n ? '' : 'zero'}">${ic} ${n}${un}</span>`;
+  return `<div class="sgline">${chip('📘 어휘', v, '권')}${chip('📗 문법', g, '단원')}${chip('📖 본문', p, '개')}</div><i data-sid="${sid}" hidden></i>`;
 };
 const _tabToday = tabToday;
 tabToday = function () {
