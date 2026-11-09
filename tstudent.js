@@ -52,9 +52,10 @@ async function stuLoad(force) {
 }
 
 /* ---------- 학생별 어휘·내신 진행 계산 ---------- */
-function stuVSteps(a) {
+function stuVSteps(a, unit) {
   const bk = vtBook(a.book_id), c = { ...vtDefaults(bk), ...(a.settings || {}) };
-  const on = Array.isArray(c.steps) && c.steps.length ? c.steps : ['look', 'memorize', 'check', 'write', 'match'];
+  const us = unit && c.unit_steps ? c.unit_steps[unit.ord] : null;
+  const on = Array.isArray(us) && us.length ? us : Array.isArray(c.steps) && c.steps.length ? c.steps : ['look', 'memorize', 'check', 'write', 'match'];
   return [...SV_ORDER.filter(k => on.includes(k)), 'test'];
 }
 function stuVocabInfo(sid) {
@@ -67,7 +68,7 @@ function stuVocabInfo(sid) {
     const curU = us.find(u => { const x = st(u); return !(x && x.passed_at); });
     let cur = null;
     if (curU) {
-      const steps = stuVSteps(a), prog = STU.vprog.filter(p => p.student_id === sid && p.unit_id === curU.id);
+      const steps = stuVSteps(a, curU), prog = STU.vprog.filter(p => p.student_id === sid && p.unit_id === curU.id);
       const done = prog.map(p => p.step), next = steps.find(k => !done.includes(k));
       cur = { unit: curU, steps, prog, done, next };
     }
@@ -161,10 +162,10 @@ function stuView(sid) {
     const chips = x.us.map(u => { const st = x.st(u), cls = st && st.passed_at ? 'ok' : st ? 'now' : 'lock';
       return `<button class="uchip ${cls}" data-vreset="${u.id}" title="${st ? `최고 ${st.best_pct}% · 테스트 ${st.tests}번 (누르면 처음부터 다시)` : '시작 전'}">${st && st.passed_at ? '✓' : ''}<span>${u.ord}</span>${st ? `<small>${st.best_pct}%</small>` : ''}</button>`; }).join('');
     return `<div class="card stu-a"><div class="row between" style="flex-wrap:wrap;gap:6px"><div><h3>${esc(x.bk.title)}</h3><span class="tiny">${esc(vtLevelLabel(x.bk))} · ${x.passed}/${x.us.length} ${esc(vtUnitWord(x.bk))} 통과</span></div>
-      <div class="row" style="gap:6px"><button class="btn small ghost" data-vset="${x.a.id}">⚙ 설정·단계 수정</button><button class="btn small ghost" data-vdel="${x.a.id}" style="color:#dc2626">해제</button></div></div>
+      <div class="row" style="gap:6px"><button class="btn small ghost" data-vday="${x.a.id}">📅 Day별 단계</button><button class="btn small ghost" data-vset="${x.a.id}">⚙ 설정</button><button class="btn small ghost" data-vdel="${x.a.id}" style="color:#dc2626">해제</button></div></div>
       <div class="progress" style="margin:8px 0"><i style="width:${pct(x.passed, x.us.length) || 0}%"></i></div>${curBox}
       <div class="uchips" style="margin-top:8px">${chips}</div>
-      <div class="stu-set">통과 ${c.pass_pct}% · 하루 새 ${vtUnitWord(x.bk)} ${c.units_per_day || '제한 없음'} · 첫 글자 힌트 ${c.first_letter ? '켬' : '끔'} · 단계: ${stuVSteps(x.a).map(k => SV_STEP[k]).join(' → ')}</div></div>`;
+      <div class="stu-set">통과 ${c.pass_pct}% · 하루 새 ${vtUnitWord(x.bk)} ${c.units_per_day || '제한 없음'} · 첫 글자 힌트 ${c.first_letter ? '켬' : '끔'} · 기본 단계: ${stuVSteps(x.a).slice(0, -1).map(k => SV_STEP[k]).join(' → ')}${c.unit_steps && Object.keys(c.unit_steps).length ? ` · <b>Day별 따로 ${Object.keys(c.unit_steps).length}개</b>` : ''}</div></div>`;
   }).join('') || '<div class="card muted">배정된 단어장이 없어요. 오른쪽 위 「+ 단어장 배정」을 눌러 주세요.</div>';
   const vRecent = STU.vprog.filter(p => p.student_id === sid).sort((a, b) => String(b.done_at).localeCompare(String(a.done_at))).slice(0, 8).map(r => {
     const u = VT.units.find(x => x.id === r.unit_id), b = u && vtBook(u.book_id);
@@ -237,11 +238,13 @@ function stuBind(sid) {
     vtBindSteps(m); m.querySelector('#cx').onclick = () => m.remove();
     m.querySelector('#sv').onclick = async () => {
       const { settings, start } = vtReadSettings(m);
+      if (a.settings && a.settings.unit_steps) settings.unit_steps = a.settings.unit_steps;
       const { error } = await S.sb.from('vocab_assignments').update({ settings, start_ord: start }).eq('id', a.id);
       if (error) return toast(errText(error), 4000);
       a.settings = settings; a.start_ord = start; m.remove(); toast('저장했어요'); stuView(sid);
     };
   });
+  document.querySelectorAll('[data-vday]').forEach(b => b.onclick = () => stuDaySteps(sid, b.dataset.vday));
   document.querySelectorAll('[data-vdel]').forEach(b => b.onclick = async () => {
     if (!confirm('이 단어장 배정을 해제할까요? 학생 화면에서 사라져요. (학습 기록은 남아요)')) return;
     const { error } = await S.sb.from('vocab_assignments').delete().eq('id', b.dataset.vdel);
@@ -296,6 +299,8 @@ function stuVAssign(sid) {
   m.querySelector('#cx').onclick = () => m.remove();
   m.querySelector('#sv').onclick = async () => {
     const { settings, start } = vtReadSettings(m), book = m.querySelector('#abk').value;
+    const old = VT.asg.find(x => x.student_id === sid && x.book_id === book);
+    if (old && old.settings && old.settings.unit_steps) settings.unit_steps = old.settings.unit_steps;
     const { error } = await S.sb.from('vocab_assignments').upsert([{ student_id: sid, book_id: book, settings, start_ord: start }], { onConflict: 'student_id,book_id' });
     if (error) return toast(errText(error), 4000);
     m.remove(); toast('배정했어요'); await stuReload(sid);
@@ -354,5 +359,37 @@ function stuPAssign(sid) {
     const { error } = await S.sb.from('passage_assignments').upsert([{ student_id: sid, passage_id: pid, track }], { onConflict: 'student_id,passage_id' });
     if (error) return toast(errText(error), 4000);
     m.remove(); toast('배정했어요'); await stuReload(sid);
+  };
+}
+
+/* ---------- Day(유닛)마다 학습 단계 따로 정하기 ---------- */
+function stuDaySteps(sid, aid) {
+  const s = T.sById[sid], a = VT.asg.find(x => x.id === aid), bk = vtBook(a.book_id), uw = vtUnitWord(bk) === '과' ? '과' : 'Day';
+  const base = stuVSteps(a).slice(0, -1), us = (a.settings && a.settings.unit_steps) || {}, units = vtAsgUnits(a);
+  const opts = SV_ORDER.map(k => [k, SV_STEP[k]]);
+  const rows = units.map(u => { const on = Array.isArray(us[u.ord]) && us[u.ord].length ? us[u.ord] : base;
+    return `<tr data-ord="${u.ord}"><td style="white-space:nowrap"><b>${u.ord}${uw === '과' ? '과' : ''}</b>${uw === 'Day' ? ' <span class="tiny">Day</span>' : ''}</td>${opts.map(([k]) => `<td style="text-align:center"><input type="checkbox" data-k="${k}" ${on.includes(k) ? 'checked' : ''}></td>`).join('')}<td class="tiny" data-tag>${Array.isArray(us[u.ord]) && us[u.ord].length ? '따로' : '기본'}</td></tr>`; }).join('');
+  const m = modal(`<h2>${esc(s.name)} · ${esc(bk.title)} — ${uw}별 학습 단계</h2>
+    <p class="tiny">${uw}마다 해야 할 단계를 골라요. 유닛 테스트는 늘 마지막에 있어요. 기본(설정에서 고른 단계)과 같으면 「기본」으로 남아요. 이미 끝낸 단계의 기록은 그대로예요.</p>
+    <div class="row" style="gap:6px;flex-wrap:wrap;margin:6px 0"><span class="tiny">전체에 적용:</span><button type="button" class="btn small ghost" data-p="basic">기초</button><button type="button" class="btn small ghost" data-p="std">표준</button><button type="button" class="btn small ghost" data-p="adv">심화</button><button type="button" class="btn small ghost" data-p="def">기본으로 되돌리기</button></div>
+    <div class="tablewrap" style="max-height:52vh;overflow:auto"><table><thead><tr><th>${uw}</th>${opts.map(([k, n]) => `<th style="font-size:11px">${esc(n)}</th>`).join('')}<th></th></tr></thead><tbody>${rows}</tbody></table></div>
+    <div class="row" style="margin-top:12px"><button class="btn" id="sv">저장</button><button class="btn ghost" id="cx">취소</button></div>`);
+  const PRE = { basic: ['look', 'memorize', 'check', 'write', 'match', 'pos', 'sent'], std: ['look', 'memorize', 'check', 'write', 'match'], adv: ['check', 'write'] };
+  const setRow = (tr, list) => tr.querySelectorAll('input').forEach(i => { i.checked = list.includes(i.dataset.k); });
+  const rowSteps = tr => [...tr.querySelectorAll('input:checked')].map(i => i.dataset.k);
+  const same = (x, y) => x.length === y.length && x.every(k => y.includes(k));
+  const tag = tr => { tr.querySelector('[data-tag]').textContent = same(rowSteps(tr), base) ? '기본' : '따로'; };
+  m.querySelectorAll('tbody tr').forEach(tr => tr.addEventListener('change', () => tag(tr)));
+  m.querySelectorAll('[data-p]').forEach(b => b.onclick = () => m.querySelectorAll('tbody tr').forEach(tr => { setRow(tr, b.dataset.p === 'def' ? base : PRE[b.dataset.p]); tag(tr); }));
+  m.querySelector('#cx').onclick = () => m.remove();
+  m.querySelector('#sv').onclick = async () => {
+    const out = {}; let bad = null;
+    m.querySelectorAll('tbody tr').forEach(tr => { const l = rowSteps(tr); if (!l.length) bad = tr.dataset.ord; else if (!same(l, base)) out[tr.dataset.ord] = SV_ORDER.filter(k => l.includes(k)); });
+    if (bad) return toast(`${bad}번은 단계를 하나 이상 골라 주세요`, 3500);
+    const settings = { ...(a.settings || {}) };
+    if (Object.keys(out).length) settings.unit_steps = out; else delete settings.unit_steps;
+    const { error } = await S.sb.from('vocab_assignments').update({ settings }).eq('id', a.id);
+    if (error) return toast(errText(error), 4000);
+    a.settings = settings; m.remove(); toast('저장했어요'); stuView(sid);
   };
 }

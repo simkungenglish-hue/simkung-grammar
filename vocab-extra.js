@@ -91,7 +91,7 @@ function vExtra(unitId, kind, items) {
   const fin = async () => {
     const done = await vStepDone(unitId, kind, ok, list.length);
     if (!done) return;
-    const sl = vStepList(vAsgOfUnit(unitId)), si = sl.findIndex(x => x[0] === kind), nextK = si >= 0 && sl[si + 1] ? sl[si + 1][0] : null;
+    const sl = vStepList(vAsgOfUnit(unitId), unitId), si = sl.findIndex(x => x[0] === kind), nextK = si >= 0 && sl[si + 1] ? sl[si + 1][0] : null;
     shell(`<div class="card vend"><div class="vend-ic">${V_ICON[kind]}</div><h2>${esc(V_STEP_NAME[kind])} 끝!</h2>
       <p class="clock big">${ok} / ${list.length}</p><p class="muted">맞힌 문제</p>
       ${wrong.length ? `<div class="wlist"><div class="tiny">틀린 문제</div>${wrong.map(w => `<div class="wrow"><b>${esc(w.word)}</b><span>${esc(kind === 'pos' ? w.pos_list.join('·') : w.sent_answer)}</span></div>`).join('')}</div>` : ''}

@@ -29,7 +29,8 @@ function vCfg(a) {
   const bk = a && typeof vBook === 'function' ? vBook(a.book_id) : null, school = !!(bk && bk.kind === 'school');
   return { pass_pct: s.pass_pct ?? 90, first_letter: !!s.first_letter, units_per_day: s.units_per_day ?? (school ? 0 : 1), review_cap: s.review_cap ?? 40, speak: s.speak !== false,
     prev_review: s.prev_review !== false, prev_n: s.prev_n ?? 10,
-    steps: Array.isArray(s.steps) && s.steps.length ? s.steps : null,   // 원장님이 학생·교재별로 고른 학습 단계 (없으면 기본 5단계 + 테스트)
+    steps: Array.isArray(s.steps) && s.steps.length ? s.steps : null,
+    unit_steps: s.unit_steps && typeof s.unit_steps === 'object' ? s.unit_steps : null,   // 유닛(Day)마다 따로 고른 단계 {유닛번호: [단계…]} — 있으면 이 유닛은 그 단계만   // 원장님이 학생·교재별로 고른 학습 단계 (없으면 기본 5단계 + 테스트)
     sequential: s.sequential ?? !school, only: Array.isArray(s.only) && s.only.length ? s.only.map(Number) : null };
 }
 function vBookLabel(bk) {
@@ -187,16 +188,20 @@ function vPrevUnit(unitId) {
   return null;
 }
 // 이 학생·교재에서 해야 하는 학습 단계. 원장님이 고른 단계만, 순서는 고정, 유닛 테스트는 늘 마지막에 있어요.
-function vStepList(a) {
-  const cfg = vCfg(a), test = V_STEPS.find(s => s[0] === 'test');
-  if (!cfg.steps) return V_STEPS.slice();
-  const core = V_STEPS.filter(s => s[0] !== 'test' && cfg.steps.includes(s[0])), ext = V_EXTRA.filter(s => cfg.steps.includes(s[0]));
+function vStepsOf(a, unitId) {
+  const cfg = vCfg(a), u = unitId ? vUnit(unitId) : null, us = u && cfg.unit_steps ? cfg.unit_steps[u.ord] : null;
+  return Array.isArray(us) && us.length ? us : cfg.steps;
+}
+function vStepList(a, unitId) {
+  const steps = vStepsOf(a, unitId), test = V_STEPS.find(s => s[0] === 'test');
+  if (!steps) return V_STEPS.slice();
+  const core = V_STEPS.filter(s => s[0] !== 'test' && steps.includes(s[0])), ext = V_EXTRA.filter(s => steps.includes(s[0]));
   return [...core, ...ext, test];
 }
-const vFirstStep = unitId => { const a = vAsgOfUnit(unitId); return vStepList(a)[0][0]; };
+const vFirstStep = unitId => { const a = vAsgOfUnit(unitId); return vStepList(a, unitId)[0][0]; };
 const vPrevNeeded = unitId => !!vPrevUnit(unitId) && !vProg(unitId, 'prev') && !VS.prog.some(x => x.unit_id === unitId && x.step !== 'prev');
 function vStepOpen(unitId, step) {
-  const a = vAsgOfUnit(unitId), list = vStepList(a), i = list.findIndex(s => s[0] === step);
+  const a = vAsgOfUnit(unitId), list = vStepList(a, unitId), i = list.findIndex(s => s[0] === step);
   if (i < 0) return false;
   if (i === 0) return !vPrevNeeded(unitId);
   if (step === 'test') return !!vProg(unitId, 'test') || !!vProg(unitId, list[i - 1][0]);
@@ -266,7 +271,7 @@ function vocabHome() {
 function vUnitHome(unitId) {
   const u = vUnit(unitId), a = vAsgOfUnit(unitId); if (!u || !a) return vocabHome();
   const items = vItems(unitId), st = vStat(unitId);
-  const stepList = vStepList(a), custom = !!vCfg(a).steps;
+  const stepList = vStepList(a, unitId), custom = !!vStepsOf(a, unitId);
   const rows = stepList.map(([k, n, d]) => {
     const p = vProg(unitId, k), open = vStepOpen(unitId, k);
     let badge = '';
@@ -326,7 +331,7 @@ function vBindSpk() { document.querySelectorAll('[data-say]').forEach(b => b.onc
 function vStepEnd(unitId, step, html) {
   shell(`<div class="card vend"><div class="vend-ic">${V_ICON[step]}</div><h2>${V_STEP_NAME[step]} 끝!</h2>${html}
     <div class="row" style="justify-content:center;margin-top:12px"><button class="btn" id="nx">다음 단계로</button><button class="btn ghost" id="uh">유닛으로</button></div></div>`);
-  const sl = vStepList(vAsgOfUnit(unitId)), i = sl.findIndex(s => s[0] === step), next = sl[i + 1];
+  const sl = vStepList(vAsgOfUnit(unitId), unitId), i = sl.findIndex(s => s[0] === step), next = sl[i + 1];
   $('#nx').onclick = () => next ? vStartStep(unitId, next[0]) : vUnitHome(unitId);
   if (!next) $('#nx').textContent = '유닛으로';
   $('#uh').onclick = () => vUnitHome(unitId);
