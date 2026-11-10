@@ -179,6 +179,10 @@ async function loadStudent() {
   const err = a.error || c.error || q.error || t.error;
   if (err) throw err;
   ST.asg = (a.data || []).filter(x => x.units && x.units.status === 'published');
+  // 부트캠프 학생: 부트캠프 단원만 보여요. 다른 배정과 지금까지의 풀이 기록·XP는 지우지 않고 그대로 보존돼요.
+  ST.bootcamp = ST.asg.some(x => x.units.school_book === '부트캠프');
+  ST.asgAll = ST.asg;
+  if (ST.bootcamp) ST.asg = ST.asg.filter(x => x.units.school_book === '부트캠프');
   // 현재 회차의 풀이만 진행 상황에 사용해요 (지난 회차 기록은 서버에 그대로 보존돼요)
   const cr = Object.fromEntries(ST.asg.map(x => [x.id, x.current_round || 1]));
   ST.concepts = c.data || []; ST.questions = q.data || [];
@@ -353,6 +357,7 @@ function vidBox(unitId, back, compact) {
     : `<div class="card soft"><h3>🎬 영상 강의</h3><p class="muted">스텔라쌤 영상으로 개념을 먼저 잡고, 문제로 확인해요.</p>${btns}</div>`;
 }
 function myLib() {
+  if (ST.bootcamp) { const seenB = new Set(); return (ST.videos || []).filter(v => v.school_book === '부트캠프').sort((a, b) => String(a.title).localeCompare(String(b.title), 'ko', { numeric: true })).filter(v => { if (seenB.has(v.yt_id)) return false; seenB.add(v.yt_id); return true; }); }
   const g = String((S.profile && S.profile.grade) || '').trim(); if (!g) return [];
   const seen = new Set();
   return (ST.videos || []).filter(v => v.school_book && v.school_book.trim().endsWith(g))

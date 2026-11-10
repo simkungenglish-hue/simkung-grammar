@@ -31,6 +31,13 @@
 .s2-steps{display:flex;gap:4px;margin-top:10px;flex-wrap:wrap}
 .s2-steps span{font-size:.72rem;font-weight:700;padding:3px 7px;border-radius:8px;background:#f1f5f9;color:#94a3b8}
 .s2-steps span.done{background:#ecfdf5;color:#059669}.s2-steps span.cur{background:#4f46e5;color:#fff}
+/* 단계 버튼 */
+.s2-sbs{display:grid;grid-template-columns:repeat(auto-fill,minmax(98px,1fr));gap:8px;margin-top:12px}
+.s2-sb{display:flex;flex-direction:column;align-items:center;gap:1px;border:2px solid #c7d2fe;background:#fff;color:#3730a3;border-radius:14px;padding:9px 6px;font:inherit;cursor:pointer;transition:transform .1s, box-shadow .1s}
+.s2-sb:hover{transform:translateY(-1px);box-shadow:0 6px 14px rgba(79,70,229,.18)}
+.s2-sb .ic{font-size:1.15rem;line-height:1.2}.s2-sb b{font-size:.88rem}.s2-sb small{font-size:.72rem;font-weight:700;opacity:.75}
+.s2-sb.done{background:#ecfdf5;border-color:#a7f3d0;color:#047857}
+.s2-sb.cur{background:#4f46e5;border-color:#4f46e5;color:#fff;box-shadow:0 8px 18px rgba(79,70,229,.32)}
 .s2-pbar{height:7px;background:#eef2f7;border-radius:99px;margin-top:10px;overflow:hidden}.s2-pbar i{display:block;height:100%;background:linear-gradient(90deg,#6366f1,#3b82f6);border-radius:99px}
 .s2-tiles{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .s2-tile{background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:14px;text-align:left;cursor:pointer;font:inherit;color:inherit}
@@ -97,6 +104,15 @@ function s2Steps(a) {
   }
   return steps;
 }
+const S2_ICON = { video: '🎬', concept: '📘' };
+function stepBtns(m) {
+  return `<div class="s2-sbs">${m.steps.map((s, i) => {
+    const cls = s.done ? 'done' : s === m.cur ? 'cur' : '';
+    const sub = s.sm ? (s.done ? '완료' : (s.sm.done ? s.sm.done + '/' + s.sm.total : s.sm.total + '문제')) : (s.done ? '완료' : s.k === 'video' ? '보기' : '읽기');
+    return `<button type="button" class="s2-sb ${cls}" data-sb="${m.a.id}:${i}"><span class="ic">${s.done ? '✓' : (S2_ICON[s.k] || '✏️')}</span><b>${esc(s.name)}</b><small>${sub}</small></button>`;
+  }).join('')}</div>`;
+}
+const s2UnitNo = x => { const m = String((x.a.units || {}).code || '').match(/(\d+)\s*$/); return m ? Number(m[1]) : 999; };
 function s2Due(a) {
   if (!a.due_date) return '';
   const d = Math.round((new Date(a.due_date + 'T00:00:00+09:00') - new Date(kdate(new Date()) + 'T00:00:00+09:00')) / 864e5);
@@ -104,7 +120,7 @@ function s2Due(a) {
 }
 function s2Missions() {
   return ST.asg.map(a => { const steps = s2Steps(a); const qSteps = steps.filter(s => s.sm); const done = steps.filter(s => s.done).length; const cur = steps.find(s => !s.done); return { a, steps, cur, pct: steps.length ? Math.round(done / steps.length * 100) : 0, qDone: qSteps.filter(s => s.done).length, qTotal: qSteps.length }; })
-    .sort((x, y) => (!!x.cur === !!y.cur ? 0 : x.cur ? -1 : 1) || String(x.a.due_date || '9999').localeCompare(String(y.a.due_date || '9999')) || (y.pct - x.pct) || String(x.a.created_at).localeCompare(String(y.a.created_at)));
+    .sort((x, y) => (ST.bootcamp ? s2UnitNo(x) - s2UnitNo(y) : 0) || (!!x.cur === !!y.cur ? 0 : x.cur ? -1 : 1) || String(x.a.due_date || '9999').localeCompare(String(y.a.due_date || '9999')) || (y.pct - x.pct) || String(x.a.created_at).localeCompare(String(y.a.created_at)));
 }
 function s2WrongCount() {
   let n = 0;
@@ -126,14 +142,14 @@ function studentHome() {
     <div class="s2-lv"><div class="t"><span>Lv.${stt.lv}</span><span>다음 레벨까지 ${stt.per - stt.into} XP</span></div><div class="bar"><i style="width:${Math.round(stt.into / stt.per * 100)}%"></i></div></div></div>`;
   const nowCard = now ? `<div class="s2-now"><div class="lbl">▶ 지금 할 일 · ${now.steps.indexOf(now.cur) + 1}/${now.steps.length}단계</div>
       <h2>${esc(now.a.units.title)}</h2><div class="meta">${esc(now.a.units.school_book || '')} ${esc(now.a.units.lesson || '')} · ${esc(now.cur.label)}</div>
-      <div class="s2-steps">${now.steps.map(s => `<span class="${s.done ? 'done' : s === now.cur ? 'cur' : ''}">${s.done ? '✓ ' : ''}${esc(s.name)}</span>`).join('')}</div>
+      ${stepBtns(now)}
       <button class="btn go" id="s2go">${now.cur.k === 'video' ? '🎬 영상부터 보기' : now.cur.k === 'concept' ? '📘 개념 읽기' : '✏️ 문제 풀기'}</button></div>`
     : `<div class="s2-now"><div class="lbl">🎉 미션 완료</div><h2>지금 배정된 공부를 모두 끝냈어요!</h2><div class="meta">틀린 문제를 한 번 더 보거나, 영상 강의실에서 복습해 보세요.</div></div>`;
   const mCard = m => `<div class="s2-m" data-mu="${m.a.id}"><div class="top"><div><b>${esc(m.a.units.title)}</b><div class="book">${esc(m.a.units.school_book || '')} ${esc(m.a.units.lesson || '')}${(m.a.current_round || 1) > 1 ? ' · ' + m.a.current_round + '회차' : ''}</div></div>${s2Due(m.a)}</div>
-    <div class="s2-steps">${m.steps.map(s => `<span class="${s.done ? 'done' : s === m.cur ? 'cur' : ''}">${s.done ? '✓ ' : ''}${esc(s.name)}</span>`).join('')}</div>
+    ${stepBtns(m)}
     <div class="s2-pbar"><i style="width:${m.pct}%"></i></div></div>`;
   const wn = s2WrongCount();
-  const nae = ST.asg.filter(isNaesin);
+  const nae = ST.bootcamp ? [] : ST.asg.filter(isNaesin);
   const libN = (typeof myLib === 'function') ? myLib().length : 0;
   const tiles = `<div class="s2-tiles">
     ${libN ? `<button class="s2-tile" id="t-lib"><div class="ic">🎬</div><b>영상 강의실</b><small>문법 영상 ${libN}개</small></button>` : ''}
@@ -144,15 +160,16 @@ function studentHome() {
   const badges = `<div class="s2-badges">${B.map(([e, n, on]) => `<div class="s2-badge ${on ? 'on' : ''}"><div class="e">${e}</div>${n}</div>`).join('')}</div>`;
   // 어휘(게임 포함)·내신 본문 카드: 배정된 학생에게만 보여요
   const vcard = typeof vocabHomeCard === 'function' ? vocabHomeCard() : '', pcard = typeof passageHomeCard === 'function' ? passageHomeCard() : '';
-  const vp = vcard || pcard ? `<div class="s2-sec"><h3>어휘 · 본문</h3></div>${vcard}${pcard}` : '';
+  const vp = !ST.bootcamp && (vcard || pcard) ? `<div class="s2-sec"><h3>어휘 · 본문</h3></div>${vcard}${pcard}` : '';
   shell(`${hero}${nowCard}${vp}
-    <div class="s2-sec"><h3>오늘의 미션</h3><span>${todo.length}개 남음</span></div>
+    <div class="s2-sec"><h3>${ST.bootcamp ? '부트캠프 학습' : '오늘의 미션'}</h3><span>${todo.length}개 남음</span></div>
     ${todo.map(mCard).join('') || '<div class="card s2-done">남은 미션이 없어요. 원장님이 새 단원을 배정하면 여기에 나타나요.</div>'}
     <div class="s2-sec"><h3>바로 가기</h3></div>${tiles}
     <div class="s2-sec"><h3>나의 배지</h3><span>${B.filter(b => b[2]).length}/${B.length}</span></div>${badges}
     ${fin.length ? `<div class="s2-sec"><h3>완료한 단원</h3><span>${fin.length}개</span></div>${fin.map(mCard).join('')}` : ''}`);
   if (now) $('#s2go').onclick = () => now.cur.run();
   document.querySelectorAll('[data-mu]').forEach(el => el.onclick = () => unitView(el.dataset.mu));
+  document.querySelectorAll('[data-sb]').forEach(b => b.onclick = e => { e.stopPropagation(); const [id, i] = b.dataset.sb.split(':'); const m = ms.find(x => x.a.id === id); const s = m && m.steps[Number(i)]; if (s) s.run(); });
   const on = (id, f) => { const e = document.getElementById(id); if (e) e.onclick = f; };
   on('t-lib', () => libView()); on('t-wr', () => wrongNote()); on('t-pr', () => wrongPrintStudent()); on('t-nh', () => naesinHub());
   if (typeof bindVocabHome === 'function') bindVocabHome();
