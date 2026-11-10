@@ -109,7 +109,7 @@ function stepBtns(m) {
   return `<div class="s2-sbs">${m.steps.map((s, i) => {
     const cls = s.done ? 'done' : s === m.cur ? 'cur' : '';
     const sub = s.sm ? (s.done ? '완료' : (s.sm.done ? s.sm.done + '/' + s.sm.total : s.sm.total + '문제')) : (s.done ? '완료' : s.k === 'video' ? '보기' : '읽기');
-    return `<button type="button" class="s2-sb ${cls}" data-sb="${m.a.id}:${i}"><span class="ic">${s.done ? '✓' : (S2_ICON[s.k] || '✏️')}</span><b>${esc(s.name)}</b><small>${sub}</small></button>`;
+    return `<button type="button" class="s2-sb ${cls}" data-sb="${m.a.id}:${i}"><span class="ic">${s.done ? '✓' : (s.sm ? '✏️' : (S2_ICON[s.k] || '✏️'))}</span><b>${esc(s.name)}</b><small>${sub}</small></button>`;
   }).join('')}</div>`;
 }
 const s2UnitNo = x => { const m = String((x.a.units || {}).code || '').match(/(\d+)\s*$/); return m ? Number(m[1]) : 999; };
