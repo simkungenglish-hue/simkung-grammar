@@ -40,9 +40,9 @@ test('부트캠프 학생: 부트캠프 단원만, 단원 번호 순서(U1, U3, 
   assert.strictEqual(run(ctx, 'ST.asg.length'), 3, '동아 단원은 화면에서 빠진다');
   assert.strictEqual(run(ctx, 'ST.asgAll.length'), 4, '배정 자체는 지워지지 않는다');
   assert.ok(!html.includes('6과 문법'), '동아 단원 이름이 보이지 않는다');
-  const order = ['U1 품사', 'U3 be동사', 'U4 부정'].map(t => html.indexOf(t));
-  assert.ok(order.every(i => i >= 0) && order[0] < order[1] && order[1] < order[2], '단원 번호 순서');
-  assert.ok(html.includes('class="s2-sb'), '단계가 버튼으로 나온다');
+  const tiles = [...html.matchAll(/<button type="button" class="s2-ui[^"]*" data-mu="([^"]+)"/g)].map(m => m[1]);
+  assert.deepStrictEqual(tiles, ['a_u1', 'a_u3', 'a_u4'], '유닛마다 버튼(타일)이 단원 번호 순서로 나온다');
+  assert.ok(html.includes('class="s2-ui cur"'), '지금 할 유닛이 강조된다');
   assert.ok(html.includes('부트캠프 학습'));
   assert.ok(!html.includes('중등 내신'), '내신 타일이 없다');
 });

@@ -31,13 +31,18 @@
 .s2-steps{display:flex;gap:4px;margin-top:10px;flex-wrap:wrap}
 .s2-steps span{font-size:.72rem;font-weight:700;padding:3px 7px;border-radius:8px;background:#f1f5f9;color:#94a3b8}
 .s2-steps span.done{background:#ecfdf5;color:#059669}.s2-steps span.cur{background:#4f46e5;color:#fff}
-/* 단계 버튼 */
-.s2-sbs{display:grid;grid-template-columns:repeat(auto-fill,minmax(98px,1fr));gap:8px;margin-top:12px}
-.s2-sb{display:flex;flex-direction:column;align-items:center;gap:1px;border:2px solid #c7d2fe;background:#fff;color:#3730a3;border-radius:14px;padding:9px 6px;font:inherit;cursor:pointer;transition:transform .1s, box-shadow .1s}
-.s2-sb:hover{transform:translateY(-1px);box-shadow:0 6px 14px rgba(79,70,229,.18)}
-.s2-sb .ic{font-size:1.15rem;line-height:1.2}.s2-sb b{font-size:.88rem}.s2-sb small{font-size:.72rem;font-weight:700;opacity:.75}
-.s2-sb.done{background:#ecfdf5;border-color:#a7f3d0;color:#047857}
-.s2-sb.cur{background:#4f46e5;border-color:#4f46e5;color:#fff;box-shadow:0 8px 18px rgba(79,70,229,.32)}
+/* 부트캠프 유닛 버튼 */
+.s2-ut{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.s2-ui{display:flex;flex-direction:column;align-items:flex-start;gap:4px;text-align:left;border:2px solid #c7d2fe;background:#fff;color:#1e1b4b;border-radius:18px;padding:14px 13px 12px;font:inherit;cursor:pointer;transition:transform .1s, box-shadow .1s;min-height:150px}
+.s2-ui:hover{transform:translateY(-2px);box-shadow:0 10px 22px rgba(79,70,229,.2)}
+.s2-ui .no{font-weight:900;font-size:.78rem;padding:2px 9px;border-radius:999px;background:#eef2ff;color:#4338ca}
+.s2-ui b{font-size:.98rem;line-height:1.35;margin-top:2px}
+.s2-ui .nx{font-size:.78rem;font-weight:700;color:#4f46e5;margin-top:auto}
+.s2-ui small{font-size:.72rem;color:#64748b;font-weight:700}
+.s2-ui .s2-pbar{width:100%;margin-top:4px}
+.s2-ui.cur{background:linear-gradient(160deg,#4338ca,#4f46e5 55%,#2563eb);border-color:#4338ca;color:#fff;box-shadow:0 10px 24px rgba(79,70,229,.32)}
+.s2-ui.cur .no{background:rgba(255,255,255,.22);color:#fff}.s2-ui.cur .nx,.s2-ui.cur small{color:#e0e7ff}.s2-ui.cur .s2-pbar{background:rgba(255,255,255,.25)}.s2-ui.cur .s2-pbar i{background:#fff}
+.s2-ui.done{background:#ecfdf5;border-color:#a7f3d0}.s2-ui.done .no{background:#d1fae5;color:#047857}.s2-ui.done .nx{color:#047857}
 .s2-pbar{height:7px;background:#eef2f7;border-radius:99px;margin-top:10px;overflow:hidden}.s2-pbar i{display:block;height:100%;background:linear-gradient(90deg,#6366f1,#3b82f6);border-radius:99px}
 .s2-tiles{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .s2-tile{background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:14px;text-align:left;cursor:pointer;font:inherit;color:inherit}
@@ -104,14 +109,6 @@ function s2Steps(a) {
   }
   return steps;
 }
-const S2_ICON = { video: '🎬', concept: '📘' };
-function stepBtns(m) {
-  return `<div class="s2-sbs">${m.steps.map((s, i) => {
-    const cls = s.done ? 'done' : s === m.cur ? 'cur' : '';
-    const sub = s.sm ? (s.done ? '완료' : (s.sm.done ? s.sm.done + '/' + s.sm.total : s.sm.total + '문제')) : (s.done ? '완료' : s.k === 'video' ? '보기' : '읽기');
-    return `<button type="button" class="s2-sb ${cls}" data-sb="${m.a.id}:${i}"><span class="ic">${s.done ? '✓' : (s.sm ? '✏️' : (S2_ICON[s.k] || '✏️'))}</span><b>${esc(s.name)}</b><small>${sub}</small></button>`;
-  }).join('')}</div>`;
-}
 const s2UnitNo = x => { const m = String((x.a.units || {}).code || '').match(/(\d+)\s*$/); return m ? Number(m[1]) : 999; };
 function s2Due(a) {
   if (!a.due_date) return '';
@@ -129,6 +126,13 @@ function s2WrongCount() {
 }
 
 /* ---------- 학생 홈 (미션형) ---------- */
+/* 부트캠프: 유닛마다 버튼. 누르면 그 유닛 화면(영상·개념·단계별 문제)으로 들어가요 */
+function bcTile(m, now) {
+  const u = m.a.units || {}, code = String(u.code || '').replace(/^BC-/, ''), title = String(u.title || '').replace(/^U\d+\s*/, '');
+  const done = m.steps.filter(s => s.done).length, cls = !m.cur ? 'done' : m === now ? 'cur' : '';
+  const nx = !m.cur ? '✓ 완료 · 다시 보기' : (m === now ? '▶ 지금 여기 · ' : '') + m.cur.label;
+  return `<button type="button" class="s2-ui ${cls}" data-mu="${m.a.id}"><span class="no">${esc(code)}</span><b>${esc(title)}</b><span class="nx">${esc(nx)}</span><div class="s2-pbar"><i style="width:${m.pct}%"></i></div><small>${done}/${m.steps.length}단계 · ${m.pct}%</small></button>`;
+}
 function studentHome() {
   const p = S.profile || {}, nm = String(p.name || '');
   const stt = s2Stats(), ms = s2Missions(), todo = ms.filter(m => m.cur), fin = ms.filter(m => !m.cur);
@@ -142,11 +146,11 @@ function studentHome() {
     <div class="s2-lv"><div class="t"><span>Lv.${stt.lv}</span><span>다음 레벨까지 ${stt.per - stt.into} XP</span></div><div class="bar"><i style="width:${Math.round(stt.into / stt.per * 100)}%"></i></div></div></div>`;
   const nowCard = now ? `<div class="s2-now"><div class="lbl">▶ 지금 할 일 · ${now.steps.indexOf(now.cur) + 1}/${now.steps.length}단계</div>
       <h2>${esc(now.a.units.title)}</h2><div class="meta">${esc(now.a.units.school_book || '')} ${esc(now.a.units.lesson || '')} · ${esc(now.cur.label)}</div>
-      ${stepBtns(now)}
+      <div class="s2-steps">${now.steps.map(s => `<span class="${s.done ? 'done' : s === now.cur ? 'cur' : ''}">${s.done ? '✓ ' : ''}${esc(s.name)}</span>`).join('')}</div>
       <button class="btn go" id="s2go">${now.cur.k === 'video' ? '🎬 영상부터 보기' : now.cur.k === 'concept' ? '📘 개념 읽기' : '✏️ 문제 풀기'}</button></div>`
     : `<div class="s2-now"><div class="lbl">🎉 미션 완료</div><h2>지금 배정된 공부를 모두 끝냈어요!</h2><div class="meta">틀린 문제를 한 번 더 보거나, 영상 강의실에서 복습해 보세요.</div></div>`;
   const mCard = m => `<div class="s2-m" data-mu="${m.a.id}"><div class="top"><div><b>${esc(m.a.units.title)}</b><div class="book">${esc(m.a.units.school_book || '')} ${esc(m.a.units.lesson || '')}${(m.a.current_round || 1) > 1 ? ' · ' + m.a.current_round + '회차' : ''}</div></div>${s2Due(m.a)}</div>
-    ${stepBtns(m)}
+    <div class="s2-steps">${m.steps.map(s => `<span class="${s.done ? 'done' : s === m.cur ? 'cur' : ''}">${s.done ? '✓ ' : ''}${esc(s.name)}</span>`).join('')}</div>
     <div class="s2-pbar"><i style="width:${m.pct}%"></i></div></div>`;
   const wn = s2WrongCount();
   const nae = ST.bootcamp ? [] : ST.asg.filter(isNaesin);
@@ -162,14 +166,15 @@ function studentHome() {
   const vcard = typeof vocabHomeCard === 'function' ? vocabHomeCard() : '', pcard = typeof passageHomeCard === 'function' ? passageHomeCard() : '';
   const vp = !ST.bootcamp && (vcard || pcard) ? `<div class="s2-sec"><h3>어휘 · 본문</h3></div>${vcard}${pcard}` : '';
   shell(`${hero}${nowCard}${vp}
-    <div class="s2-sec"><h3>${ST.bootcamp ? '부트캠프 학습' : '오늘의 미션'}</h3><span>${todo.length}개 남음</span></div>
-    ${todo.map(mCard).join('') || '<div class="card s2-done">남은 미션이 없어요. 원장님이 새 단원을 배정하면 여기에 나타나요.</div>'}
+    ${ST.bootcamp
+      ? `<div class="s2-sec"><h3>부트캠프 학습</h3><span>${fin.length}/${ms.length} 단원 완료</span></div><div class="s2-ut">${ms.map(m => bcTile(m, now)).join('')}</div>`
+      : `<div class="s2-sec"><h3>오늘의 미션</h3><span>${todo.length}개 남음</span></div>
+    ${todo.map(mCard).join('') || '<div class="card s2-done">남은 미션이 없어요. 원장님이 새 단원을 배정하면 여기에 나타나요.</div>'}`}
     <div class="s2-sec"><h3>바로 가기</h3></div>${tiles}
     <div class="s2-sec"><h3>나의 배지</h3><span>${B.filter(b => b[2]).length}/${B.length}</span></div>${badges}
-    ${fin.length ? `<div class="s2-sec"><h3>완료한 단원</h3><span>${fin.length}개</span></div>${fin.map(mCard).join('')}` : ''}`);
+    ${fin.length && !ST.bootcamp ? `<div class="s2-sec"><h3>완료한 단원</h3><span>${fin.length}개</span></div>${fin.map(mCard).join('')}` : ''}`);
   if (now) $('#s2go').onclick = () => now.cur.run();
   document.querySelectorAll('[data-mu]').forEach(el => el.onclick = () => unitView(el.dataset.mu));
-  document.querySelectorAll('[data-sb]').forEach(b => b.onclick = e => { e.stopPropagation(); const [id, i] = b.dataset.sb.split(':'); const m = ms.find(x => x.a.id === id); const s = m && m.steps[Number(i)]; if (s) s.run(); });
   const on = (id, f) => { const e = document.getElementById(id); if (e) e.onclick = f; };
   on('t-lib', () => libView()); on('t-wr', () => wrongNote()); on('t-pr', () => wrongPrintStudent()); on('t-nh', () => naesinHub());
   if (typeof bindVocabHome === 'function') bindVocabHome();
