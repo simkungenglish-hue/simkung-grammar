@@ -183,6 +183,8 @@ function stuView(sid) {
     return `<div class="tr"><span>${d.slice(5).replace('-', '/')}</span><div class="bar"><i class="v" style="width:${v / mx * 100}%"></i><i class="g" style="width:${g / mx * 100}%"></i></div><span>${v + g ? stuMin(v + g) : '-'}${v + g ? `<span class="tiny"> (어${Math.round(v / 60)}·문${Math.round(g / 60)})</span>` : ''}</span></div>`; }).join('');
 
   /* 어휘 */
+  const lcard = (icon, title, chips, pctv, body) => `<details class="bkgrp"><summary><span class="bkg-cv"><span class="bkg-ph">${icon}</span></span><span class="bkg-i"><b>${esc(title)}</b><span class="bkg-s">${chips}</span><span class="bkg-bar"><i style="width:${Math.max(0, Math.min(100, pctv || 0))}%"></i></span></span></summary><div class="bkg-body">${body}</div></details>`;
+  const lgrid = h => h ? `<div class="bkgrid">${h}</div>` : '';
   const vInfo = stuVocabInfo(sid);
   const vHtml = vInfo.map(x => {
     const c = { ...vtDefaults(x.bk), ...(x.a.settings || {}) };
@@ -192,12 +194,13 @@ function stuView(sid) {
         return `<span class="spill ${cls}" title="${pr ? fmtDT(pr.done_at) : ''}">${pr ? '✓' : k === x.cur.next ? '▶' : '·'} ${esc(SV_STEP[k] || k)}${pr && pr.total ? ` <small>${pr.score}/${pr.total}</small>` : ''}${pr && pr.time_sec ? ` <small>${stuMin(pr.time_sec)}</small>` : ''}</span>`; }).join('')}</div></div>` : '<div class="tiny" style="margin-top:6px">모든 유닛을 통과했어요 🎉</div>';
     const chips = x.us.map(u => { const st = x.st(u), cls = st && st.passed_at ? 'ok' : st ? 'now' : 'lock';
       return `<button class="uchip ${cls}" data-vreset="${u.id}" title="${st ? `최고 ${st.best_pct}% · 테스트 ${st.tests}번 (누르면 처음부터 다시)` : '시작 전'}">${st && st.passed_at ? '✓' : ''}<span>${u.ord}</span>${st ? `<small>${st.best_pct}%</small>` : ''}</button>`; }).join('');
-    return `<div class="card stu-a"><div class="row between" style="flex-wrap:wrap;gap:6px"><div><h3>${esc(x.bk.title)}</h3><span class="tiny">${esc(vtLevelLabel(x.bk))} · ${x.passed}/${x.us.length} ${esc(vtUnitWord(x.bk))} 통과</span></div>
+    return lcard('📘', x.bk.title, `<em class="f">✓ 통과 ${x.passed}/${x.us.length}</em><span class="tiny">${esc(vtLevelLabel(x.bk))}</span>`, pct(x.passed, x.us.length), `<div class="gu"><div class="row between" style="flex-wrap:wrap;gap:6px"><div><h3>${esc(x.bk.title)}</h3><span class="tiny">${esc(vtLevelLabel(x.bk))} · ${x.passed}/${x.us.length} ${esc(vtUnitWord(x.bk))} 통과</span></div>
       <div class="row" style="gap:6px"><button class="btn small ghost" data-vday="${x.a.id}">📅 Day별 단계</button><button class="btn small ghost" data-vset="${x.a.id}">⚙ 설정</button><button class="btn small ghost" data-vdel="${x.a.id}" style="color:#dc2626">해제</button></div></div>
       <div class="progress" style="margin:8px 0"><i style="width:${pct(x.passed, x.us.length) || 0}%"></i></div>${curBox}
       <div class="uchips" style="margin-top:8px">${chips}</div>
-      <div class="stu-set">통과 ${c.pass_pct}% · 하루 새 ${vtUnitWord(x.bk)} ${c.units_per_day || '제한 없음'} · 첫 글자 힌트 ${c.first_letter ? '켬' : '끔'} · 기본 단계: ${stuVSteps(x.a).slice(0, -1).map(k => SV_STEP[k]).join(' → ')}${c.unit_steps && Object.keys(c.unit_steps).length ? ` · <b>Day별 따로 ${Object.keys(c.unit_steps).length}개</b>` : ''}</div></div>`;
-  }).join('') || '<div class="card muted">배정된 단어장이 없어요. 오른쪽 위 「+ 단어장 배정」을 눌러 주세요.</div>';
+      <div class="stu-set">통과 ${c.pass_pct}% · 하루 새 ${vtUnitWord(x.bk)} ${c.units_per_day || '제한 없음'} · 첫 글자 힌트 ${c.first_letter ? '켬' : '끔'} · 기본 단계: ${stuVSteps(x.a).slice(0, -1).map(k => SV_STEP[k]).join(' → ')}${c.unit_steps && Object.keys(c.unit_steps).length ? ` · <b>Day별 따로 ${Object.keys(c.unit_steps).length}개</b>` : ''}</div></div>`);
+  }).join('');
+  const vOut = lgrid(vHtml) || '<div class="card muted">배정된 단어장이 없어요. 오른쪽 위 「+ 단어장 배정」을 눌러 주세요.</div>';
   const vRecent = STU.vprog.filter(p => p.student_id === sid).sort((a, b) => String(b.done_at).localeCompare(String(a.done_at))).slice(0, 8).map(r => {
     const u = VT.units.find(x => x.id === r.unit_id), b = u && vtBook(u.book_id);
     return `<tr><td class="tiny">${fmtDT(r.done_at)}</td><td>${esc(b ? b.title : '')} <b>${esc(u ? (u.title || 'Unit ' + u.ord) : '')}</b></td><td>${esc(SV_STEP[r.step] || r.step)}</td><td>${r.total ? r.score + '/' + r.total : '-'}</td><td>${stuMin(r.time_sec)}</td></tr>`; }).join('');
@@ -237,9 +240,12 @@ function stuView(sid) {
 
   /* 내신 본문 */
   const pInfo = stuPassInfo(sid);
-  const pHtml = pInfo.map(x => `<div class="card stu-a"><div class="row between" style="flex-wrap:wrap;gap:6px"><div><h3>${esc(x.p.title)}</h3><span class="tiny">${esc(ptLabel(x.p))} · 완료 ${x.done.length}${x.total ? '/' + x.total : ''}단계 · 시간 ${stuMin(x.done.reduce((n, g) => n + (g.time_sec || 0), 0))}</span></div>
+  const pHtml = pInfo.map(x => { const dn = x.done.length, tot = x.total || 0;
+    return lcard('📖', x.p.title, `<em class="${tot && dn >= tot ? 'f' : dn ? 'i' : 'n'}">${tot && dn >= tot ? '✓ 완료' : dn ? '▶ 진행' : '· 시작 전'} ${dn}${tot ? '/' + tot : ''}단계</em><span class="tiny">${esc(ptLabel(x.p))}</span>`, tot ? dn / tot * 100 : 0,
+      `<div class="gu"><div class="row between" style="flex-wrap:wrap;gap:6px"><div><span class="tiny">${esc(ptLabel(x.p))} · 시간 ${stuMin(x.done.reduce((n, g) => n + (g.time_sec || 0), 0))}</span></div>
       <div class="row" style="gap:6px;flex-wrap:wrap"><select data-ptr="${x.a.id}">${Object.entries(P_TRACK).map(([k, n]) => `<option value="${k}" ${x.a.track === k ? 'selected' : ''}>${n}</option>`).join('')}</select><button class="btn small ghost" data-prs="${x.a.id}">처음부터</button><button class="btn small ghost" data-pdel="${x.a.id}" style="color:#dc2626">해제</button></div></div>
-      <div class="spills">${x.done.map(g => `<span class="spill done">✓ ${esc(P_STEP_NAME[g.step] || g.step)} <small>${g.total ? g.score + '/' + g.total : ''}</small></span>`).join('') || '<span class="tiny">아직 시작 전이에요</span>'}</div></div>`).join('') || '<div class="card muted">배정된 본문이 없어요.</div>';
+      <div class="spills">${x.done.map(g => `<span class="spill done">✓ ${esc(P_STEP_NAME[g.step] || g.step)} <small>${g.total ? g.score + '/' + g.total : ''}</small></span>`).join('') || '<span class="tiny">아직 시작 전이에요</span>'}</div></div>`); }).join('');
+  const pOut = lgrid(pHtml) || '<div class="card muted">배정된 본문이 없어요.</div>';
 
   /* 불규칙동사 */
   const ivA = (STU.ivA || []).find(x => x.student_id === sid), ivP = (STU.ivP || []).filter(x => x.student_id === sid && IV_BY.has(x.verb_no)), ivD = (STU.ivD || []).filter(x => x.student_id === sid);
@@ -252,11 +258,12 @@ function stuView(sid) {
       return `<span class="spill ${full ? 'done' : c ? 'now' : ''}">${full ? '✓' : c ? '▶' : '·'} ${ivStageName(n)} <small>${c}/${vs.length}</small></span>`; }).join('');
     const days7 = new Set(ivD.filter(x => x.day >= addDays(kst, -6) && (x.new_n || x.rev_n)).map(x => x.day)).size;
     const lastV = ivP.slice().sort((x, y) => String(y.last_at).localeCompare(String(x.last_at))).slice(0, 8).map(x => { const v = IV_BY.get(x.verb_no); return v ? `<span class="spill ${x.bad > x.ok ? 'bad' : ''}" title="맞힘 ${x.ok} · 틀림 ${x.bad}">${esc(v.base)} <small>${x.ok}/${x.ok + x.bad}</small></span>` : ''; }).join('');
-    ivHtml = `<div class="card stu-a"><div class="row between" style="flex-wrap:wrap;gap:6px"><div><h3>하루 ${ivA.per_day}개 · ${stg.length}개 단계 배정</h3><span class="tiny">외운 동사 ${have.size}개 · 완전 암기 ${mst}개 · 밀린 복습 ${dueN}개 · 최근 7일 ${days7}일 학습</span></div>
+    const ivTot = stg.reduce((n, k) => n + ivStageVerbs(k).length, 0), ivHave = stg.reduce((n, k) => n + ivStageVerbs(k).filter(v => have.has(v.no)).length, 0);
+    ivHtml = lgrid(lcard('🔁', '불규칙동사', `<em class="f">외운 ${ivHave}/${ivTot}개</em><em class="i">암기 ${mst}</em><em class="n">복습 ${dueN}</em><span class="tiny">하루 ${ivA.per_day}개 · ${stg.length}개 단계 · 최근 7일 ${days7}일</span>`, ivTot ? ivHave / ivTot * 100 : 0, `<div class="gu"><div class="row between" style="flex-wrap:wrap;gap:6px"><div><h3>하루 ${ivA.per_day}개 · ${stg.length}개 단계 배정</h3><span class="tiny">외운 동사 ${have.size}개 · 완전 암기 ${mst}개 · 밀린 복습 ${dueN}개 · 최근 7일 ${days7}일 학습</span></div>
       <div class="row" style="gap:6px"><button class="btn small ghost" id="ivreset">처음부터</button><button class="btn small ghost" id="ivdel" style="color:#dc2626">배정 해제</button></div></div>
       <div class="spills">${pills || '<span class="tiny">배정된 단계가 없어요</span>'}</div>
       <div class="stu-set">오늘 새 ${ivTodayD.new_n}/${ivA.per_day}개 · 복습 ${ivTodayD.rev_n}개 · 정답 ${ivTodayD.ok}/${ivTodayD.total} · 시간 ${ivTodayD.sec ? stuMin(ivTodayD.sec) : '-'}${(ivA.settings && ivA.settings.hint === false) ? ' · 쓰기 힌트 끔' : ''}</div>
-      ${lastV ? `<div class="tiny" style="margin-top:8px">최근 학습 (맞힘/시도)</div><div class="spills">${lastV}</div>` : ''}</div>`;
+      ${lastV ? `<div class="tiny" style="margin-top:8px">최근 학습 (맞힘/시도)</div><div class="spills">${lastV}</div>` : ''}</div>`));
   }
   $('#tb').innerHTML = `
     <div class="row between noprint" style="margin-bottom:8px"><button class="btn ghost small" id="stuback">← 전체 학생</button>
@@ -271,13 +278,13 @@ function stuView(sid) {
       <div class="kpi"><small>문법 오늘</small><b>${gToday.length}<em>회</em></b><span>${gr.length ? '정답률 ' + pct(gr.filter(a => a.is_correct).length, gr.length) + '%' : '채점 완료 없음'}</span></div>
     </section>
 
-    <div class="stu-sec"><h2>📘 어휘 학습</h2><button class="btn small" id="vadd">+ 단어장 배정</button></div>${vHtml}
+    <div class="stu-sec"><h2>📘 어휘 학습</h2><button class="btn small" id="vadd">+ 단어장 배정</button></div>${vOut}
     ${vRecent ? `<div class="card"><h3 style="margin:0 0 6px">최근 어휘 학습</h3><div class="tablewrap"><table><thead><tr><th>시각</th><th>교재 · 유닛</th><th>단계</th><th>점수</th><th>시간</th></tr></thead><tbody>${vRecent}</tbody></table></div></div>` : ''}
 
     <div class="stu-sec"><h2>📗 문법 학습</h2><button class="btn small" id="gadd">+ 문법 단원 배정</button></div>
     ${gGen ? `<h3 class="tiny" style="margin:4px 0">일반 교재</h3>${gGen}` : ''}${gNae ? `<h3 class="tiny" style="margin:10px 0 4px">내신 대비</h3>${gNae}` : ''}${!gGen && !gNae ? '<div class="card muted">배정된 문법 단원이 없어요.</div>' : ''}
 
-    <div class="stu-sec"><h2>📖 내신 본문</h2><button class="btn small" id="padd">+ 본문 배정</button></div>${pHtml}
+    <div class="stu-sec"><h2>📖 내신 본문</h2><button class="btn small" id="padd">+ 본문 배정</button></div>${pOut}
 
     <div class="stu-sec"><h2>🔁 불규칙동사</h2><button class="btn small" id="ivset">${ivA ? '⚙ 단계·개수 수정' : '+ 불규칙동사 배정'}</button></div>${ivHtml}
 
