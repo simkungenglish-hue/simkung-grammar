@@ -38,6 +38,8 @@ const stuMin = sec => { const m = Math.round((sec || 0) / 60); return m <= 0 ? (
   .bkg-act{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 4px 8px;border-bottom:1px dashed #e2e8f0}
   .bkgrp.arch{opacity:.85;background:#f8fafc}
   .archsec{margin-top:10px}.archsec>summary{cursor:pointer;font-weight:700;color:#64748b;padding:6px 2px}
+  .alb{font-size:11px;font-weight:700;color:#64748b}
+  .ph-empty{border:2px dashed #cbd5e1;border-radius:16px;padding:18px 14px;color:#94a3b8;font-weight:700;display:flex;flex-direction:column;gap:4px;cursor:pointer;min-height:76px;justify-content:center}.ph-empty small{font-weight:500}.ph-empty:hover{border-color:#818cf8;color:#6366f1}
   .bkgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:10px;margin-bottom:8px;align-items:start}
   .bkgrid .bkgrp{margin:0}.bkgrid .bkgrp[open]{grid-column:1/-1}
   .bkgrp>summary{padding:10px 12px;gap:10px}
@@ -190,7 +192,7 @@ function stuView(sid) {
     return `<div class="tr"><span>${d.slice(5).replace('-', '/')}</span><div class="bar"><i class="v" style="width:${v / mx * 100}%"></i><i class="g" style="width:${g / mx * 100}%"></i></div><span>${v + g ? stuMin(v + g) : '-'}${v + g ? `<span class="tiny"> (어${Math.round(v / 60)}·문${Math.round(g / 60)})</span>` : ''}</span></div>`; }).join('');
 
   /* 어휘 */
-  const lcard = (icon, title, chips, pctv, body) => `<details class="bkgrp"><summary><span class="bkg-cv"><span class="bkg-ph">${icon}</span></span><span class="bkg-i"><b>${esc(title)}</b><span class="bkg-s">${chips}</span><span class="bkg-bar"><i style="width:${Math.max(0, Math.min(100, pctv || 0))}%"></i></span></span></summary><div class="bkg-body">${body}</div></details>`;
+  const lcard = (icon, title, chips, pctv, body, area) => `<details class="bkgrp"><summary><span class="bkg-cv"><span class="bkg-ph">${icon}</span></span><span class="bkg-i">${area ? `<span class="alb">${area}</span>` : ''}<b>${esc(title)}</b><span class="bkg-s">${chips}</span><span class="bkg-bar"><i style="width:${Math.max(0, Math.min(100, pctv || 0))}%"></i></span></span></summary><div class="bkg-body">${body}</div></details>`;
   const lgrid = h => h ? `<div class="bkgrid">${h}</div>` : '';
   const vInfo = stuVocabInfo(sid);
   const vHtml = vInfo.map(x => {
@@ -205,9 +207,9 @@ function stuView(sid) {
       <div class="row" style="gap:6px"><button class="btn small ghost" data-vday="${x.a.id}">📅 Day별 단계</button><button class="btn small ghost" data-vset="${x.a.id}">⚙ 설정</button><button class="btn small ghost" data-vdel="${x.a.id}" style="color:#dc2626">해제</button></div></div>
       <div class="progress" style="margin:8px 0"><i style="width:${pct(x.passed, x.us.length) || 0}%"></i></div>${curBox}
       <div class="uchips" style="margin-top:8px">${chips}</div>
-      <div class="stu-set">통과 ${c.pass_pct}% · 하루 새 ${vtUnitWord(x.bk)} ${c.units_per_day || '제한 없음'} · 첫 글자 힌트 ${c.first_letter ? '켬' : '끔'} · 기본 단계: ${stuVSteps(x.a).slice(0, -1).map(k => SV_STEP[k]).join(' → ')}${c.unit_steps && Object.keys(c.unit_steps).length ? ` · <b>Day별 따로 ${Object.keys(c.unit_steps).length}개</b>` : ''}</div></div>`);
+      <div class="stu-set">통과 ${c.pass_pct}% · 하루 새 ${vtUnitWord(x.bk)} ${c.units_per_day || '제한 없음'} · 첫 글자 힌트 ${c.first_letter ? '켬' : '끔'} · 기본 단계: ${stuVSteps(x.a).slice(0, -1).map(k => SV_STEP[k]).join(' → ')}${c.unit_steps && Object.keys(c.unit_steps).length ? ` · <b>Day별 따로 ${Object.keys(c.unit_steps).length}개</b>` : ''}</div></div>`, '📘 어휘');
   }).join('');
-  const vOut = lgrid(vHtml) || '<div class="card muted">배정된 단어장이 없어요. 오른쪽 위 「+ 단어장 배정」을 눌러 주세요.</div>';
+  
   const vRecent = STU.vprog.filter(p => p.student_id === sid).sort((a, b) => String(b.done_at).localeCompare(String(a.done_at))).slice(0, 8).map(r => {
     const u = VT.units.find(x => x.id === r.unit_id), b = u && vtBook(u.book_id);
     return `<tr><td class="tiny">${fmtDT(r.done_at)}</td><td>${esc(b ? b.title : '')} <b>${esc(u ? (u.title || 'Unit ' + u.ord) : '')}</b></td><td>${esc(SV_STEP[r.step] || r.step)}</td><td>${r.total ? r.score + '/' + r.total : '-'}</td><td>${stuMin(r.time_sec)}</td></tr>`; }).join('');
@@ -240,7 +242,7 @@ function stuView(sid) {
     const allp = L.flatMap(x => x.pcts), avg = allp.length ? Math.round(allp.reduce((p, q) => p + q, 0) / allp.length) : null;
     const tot = L.reduce((p, x) => p + x.sec, 0), cnt = L.reduce((p, x) => p + x.n, 0);
     return `<details class="bkgrp ${isArch ? 'arch' : ''}"><summary><span class="bkg-cv">${cvImg(b, 'big') || '<span class="bkg-ph">📗</span>'}</span>
-      <span class="bkg-i"><b>${esc(b)}</b><span class="bkg-s"><em class="f">✓ 완료 ${nf}</em><em class="i">▶ 진행 ${ni}</em><em class="n">· 시작 전 ${nn}</em><span class="tiny">총 ${L.length}단원${avg != null ? ' · 평균 ' + avg + '%' : ''} · 풀이 ${cnt}번${tot ? ' · ' + fmtDur(tot) : ''}</span></span>
+      <span class="bkg-i"><span class="alb">${isArch ? '📦 종료' : '📗 문법'}</span><b>${esc(b)}</b><span class="bkg-s"><em class="f">✓ 완료 ${nf}</em><em class="i">▶ 진행 ${ni}</em><em class="n">· 시작 전 ${nn}</em><span class="tiny">총 ${L.length}단원${avg != null ? ' · 평균 ' + avg + '%' : ''} · 풀이 ${cnt}번${tot ? ' · ' + fmtDur(tot) : ''}</span></span>
       <span class="bkg-bar"><i style="width:${Math.round(nf / L.length * 100)}%"></i></span></span></summary>
       <div class="bkg-body"><div class="bkg-act">${isArch ? `<span class="tiny">학습 종료한 교재예요. 기록은 그대로 남아 있어요.</span><button class="btn small" data-gun="${esc(b)}">↩ 다시 학습 중으로</button>` : `<span class="tiny">이 교재 학습이 모두 끝났다면</span><button class="btn small" data-garch="${esc(b)}">📦 학습 종료</button>`}</div>${L.map(x => x.html).join('')}</div></details>`;
   };
@@ -256,13 +258,12 @@ function stuView(sid) {
     return lcard('📖', x.p.title, `<em class="${tot && dn >= tot ? 'f' : dn ? 'i' : 'n'}">${tot && dn >= tot ? '✓ 완료' : dn ? '▶ 진행' : '· 시작 전'} ${dn}${tot ? '/' + tot : ''}단계</em><span class="tiny">${esc(ptLabel(x.p))}</span>`, tot ? dn / tot * 100 : 0,
       `<div class="gu"><div class="row between" style="flex-wrap:wrap;gap:6px"><div><span class="tiny">${esc(ptLabel(x.p))} · 시간 ${stuMin(x.done.reduce((n, g) => n + (g.time_sec || 0), 0))}</span></div>
       <div class="row" style="gap:6px;flex-wrap:wrap"><select data-ptr="${x.a.id}">${Object.entries(P_TRACK).map(([k, n]) => `<option value="${k}" ${x.a.track === k ? 'selected' : ''}>${n}</option>`).join('')}</select><button class="btn small ghost" data-prs="${x.a.id}">처음부터</button><button class="btn small ghost" data-pdel="${x.a.id}" style="color:#dc2626">해제</button></div></div>
-      <div class="spills">${x.done.map(g => `<span class="spill done">✓ ${esc(P_STEP_NAME[g.step] || g.step)} <small>${g.total ? g.score + '/' + g.total : ''}</small></span>`).join('') || '<span class="tiny">아직 시작 전이에요</span>'}</div></div>`); }).join('');
-  const pOut = lgrid(pHtml) || '<div class="card muted">배정된 본문이 없어요.</div>';
+      <div class="spills">${x.done.map(g => `<span class="spill done">✓ ${esc(P_STEP_NAME[g.step] || g.step)} <small>${g.total ? g.score + '/' + g.total : ''}</small></span>`).join('') || '<span class="tiny">아직 시작 전이에요</span>'}</div></div>`, '📖 내신 본문'); }).join('');
 
   /* 불규칙동사 */
   const ivA = (STU.ivA || []).find(x => x.student_id === sid), ivP = (STU.ivP || []).filter(x => x.student_id === sid && IV_BY.has(x.verb_no)), ivD = (STU.ivD || []).filter(x => x.student_id === sid);
   const ivTodayD = ivD.find(x => x.day === kst) || { new_n: 0, rev_n: 0, ok: 0, total: 0, sec: 0 };
-  let ivHtml = '<div class="card muted">아직 배정하지 않았어요. 「+ 불규칙동사 배정」으로 단계와 하루 개수를 정해 주세요.</div>';
+  let ivHtml = '';
   if (ivA) {
     const have = new Set(ivP.map(x => x.verb_no)), dueN = ivP.filter(x => x.due_on <= kst).length, mst = ivP.filter(x => x.box >= 5).length;
     const stg = (ivA.stages || []).filter(n => IV_STAGES.includes(n)).sort((x, y) => x - y);
@@ -271,11 +272,11 @@ function stuView(sid) {
     const days7 = new Set(ivD.filter(x => x.day >= addDays(kst, -6) && (x.new_n || x.rev_n)).map(x => x.day)).size;
     const lastV = ivP.slice().sort((x, y) => String(y.last_at).localeCompare(String(x.last_at))).slice(0, 8).map(x => { const v = IV_BY.get(x.verb_no); return v ? `<span class="spill ${x.bad > x.ok ? 'bad' : ''}" title="맞힘 ${x.ok} · 틀림 ${x.bad}">${esc(v.base)} <small>${x.ok}/${x.ok + x.bad}</small></span>` : ''; }).join('');
     const ivTot = stg.reduce((n, k) => n + ivStageVerbs(k).length, 0), ivHave = stg.reduce((n, k) => n + ivStageVerbs(k).filter(v => have.has(v.no)).length, 0);
-    ivHtml = lgrid(lcard('🔁', '불규칙동사', `<em class="f">외운 ${ivHave}/${ivTot}개</em><em class="i">암기 ${mst}</em><em class="n">복습 ${dueN}</em><span class="tiny">하루 ${ivA.per_day}개 · ${stg.length}개 단계 · 최근 7일 ${days7}일</span>`, ivTot ? ivHave / ivTot * 100 : 0, `<div class="gu"><div class="row between" style="flex-wrap:wrap;gap:6px"><div><h3>하루 ${ivA.per_day}개 · ${stg.length}개 단계 배정</h3><span class="tiny">외운 동사 ${have.size}개 · 완전 암기 ${mst}개 · 밀린 복습 ${dueN}개 · 최근 7일 ${days7}일 학습</span></div>
+    ivHtml = (lcard('🔁', '불규칙동사', `<em class="f">외운 ${ivHave}/${ivTot}개</em><em class="i">암기 ${mst}</em><em class="n">복습 ${dueN}</em><span class="tiny">하루 ${ivA.per_day}개 · ${stg.length}개 단계 · 최근 7일 ${days7}일</span>`, ivTot ? ivHave / ivTot * 100 : 0, `<div class="gu"><div class="row between" style="flex-wrap:wrap;gap:6px"><div><h3>하루 ${ivA.per_day}개 · ${stg.length}개 단계 배정</h3><span class="tiny">외운 동사 ${have.size}개 · 완전 암기 ${mst}개 · 밀린 복습 ${dueN}개 · 최근 7일 ${days7}일 학습</span></div>
       <div class="row" style="gap:6px"><button class="btn small ghost" id="ivreset">처음부터</button><button class="btn small ghost" id="ivdel" style="color:#dc2626">배정 해제</button></div></div>
       <div class="spills">${pills || '<span class="tiny">배정된 단계가 없어요</span>'}</div>
       <div class="stu-set">오늘 새 ${ivTodayD.new_n}/${ivA.per_day}개 · 복습 ${ivTodayD.rev_n}개 · 정답 ${ivTodayD.ok}/${ivTodayD.total} · 시간 ${ivTodayD.sec ? stuMin(ivTodayD.sec) : '-'}${(ivA.settings && ivA.settings.hint === false) ? ' · 쓰기 힌트 끔' : ''}</div>
-      ${lastV ? `<div class="tiny" style="margin-top:8px">최근 학습 (맞힘/시도)</div><div class="spills">${lastV}</div>` : ''}</div>`));
+      ${lastV ? `<div class="tiny" style="margin-top:8px">최근 학습 (맞힘/시도)</div><div class="spills">${lastV}</div>` : ''}</div>`, '🔁 불규칙동사'));
   }
   const lastStudy = (() => {
     const c = [];
@@ -290,6 +291,8 @@ function stuView(sid) {
     const ago = m < 1 ? '방금' : m < 60 ? m + '분 전' : m < 1440 ? Math.floor(m / 60) + '시간 전' : d + '일 전';
     return { t: best[1], src: best[0], ago };
   })();
+  const emp = (ic, t, btn) => `<div class="ph-empty" data-clickbtn="${btn}">${ic} ${t}<small>배정 없음 · 눌러서 배정</small></div>`;
+  const emptyCards = (vHtml ? '' : emp('📘', '어휘', 'vadd')) + ((gGen || gNae) ? '' : emp('📗', '문법', 'gadd')) + (pHtml ? '' : emp('📖', '내신 본문', 'padd')) + (ivHtml ? '' : emp('🔁', '불규칙동사', 'ivset'));
   $('#tb').innerHTML = `
     <div class="row between noprint" style="margin-bottom:8px"><button class="btn ghost small" id="stuback">← 전체 학생</button>
       <span class="row" style="gap:6px"><select id="stuswitch">${T.students.map(x => `<option value="${x.id}" ${x.id === sid ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select><button class="btn ghost small" id="sturl">새로고침</button></span></div>
@@ -304,15 +307,10 @@ function stuView(sid) {
       <div class="kpi"><small>문법 오늘</small><b>${gToday.length}<em>회</em></b><span>${gr.length ? '정답률 ' + pct(gr.filter(a => a.is_correct).length, gr.length) + '%' : '채점 완료 없음'}</span></div>
     </section>
 
-    <div class="stu-sec"><h2>📘 어휘 학습</h2><button class="btn small" id="vadd">+ 단어장 배정</button></div>${vOut}
-    ${vRecent ? `<div class="card"><h3 style="margin:0 0 6px">최근 어휘 학습</h3><div class="tablewrap"><table><thead><tr><th>시각</th><th>교재 · 유닛</th><th>단계</th><th>점수</th><th>시간</th></tr></thead><tbody>${vRecent}</tbody></table></div></div>` : ''}
-
-    <div class="stu-sec"><h2>📗 문법 학습</h2><button class="btn small" id="gadd">+ 문법 단원 배정</button></div>
-    ${gGen ? `<h3 class="tiny" style="margin:4px 0">일반 교재</h3>${gGen}` : ''}${gNae ? `<h3 class="tiny" style="margin:10px 0 4px">내신 대비</h3>${gNae}` : ''}${!gGen && !gNae ? '<div class="card muted">' + (gArch.length ? '지금 학습 중인 문법 교재가 없어요. 새 교재를 배정해 주세요.' : '배정된 문법 단원이 없어요.') + '</div>' : ''}${gArchHtml}
-
-    <div class="stu-sec"><h2>📖 내신 본문</h2><button class="btn small" id="padd">+ 본문 배정</button></div>${pOut}
-
-    <div class="stu-sec"><h2>🔁 불규칙동사</h2><button class="btn small" id="ivset">${ivA ? '⚙ 단계·개수 수정' : '+ 불규칙동사 배정'}</button></div>${ivHtml}
+    <div class="stu-sec"><h2>📚 지금 학습 중</h2><div class="row noprint" style="gap:6px;flex-wrap:wrap"><button class="btn small" id="vadd">+ 단어장</button><button class="btn small" id="gadd">+ 문법 단원</button><button class="btn small" id="padd">+ 내신 본문</button><button class="btn small" id="ivset">${ivA ? '⚙ 불규칙동사' : '+ 불규칙동사'}</button></div></div>
+    <div class="bkgrid">${vHtml}${gGen}${gNae}${pHtml}${ivHtml}${emptyCards}</div>
+    ${gArchHtml}
+    ${vRecent ? `<div class="card" style="margin-top:12px"><h3 style="margin:0 0 6px">최근 어휘 학습</h3><div class="tablewrap"><table><thead><tr><th>시각</th><th>교재 · 유닛</th><th>단계</th><th>점수</th><th>시간</th></tr></thead><tbody>${vRecent}</tbody></table></div></div>` : ''}
 
     <div class="stu-sec"><h2>⏱ 학습 시간 (최근 14일)</h2></div>
     <div class="card tbars"><div class="tiny" style="margin-bottom:6px"><span class="spill" style="background:#eef2ff;color:#4338ca">■ 어휘</span> <span class="spill" style="background:#fffbeb;color:#b45309">■ 문법</span> · 학생이 화면을 보며 푼 시간이에요(3분 이상 가만히 있으면 뺐어요)</div>${timeHtml}</div>
@@ -377,6 +375,7 @@ function stuBind(sid) {
   document.querySelectorAll('[data-grl]').forEach(b => b.onclick = () => relearnModal(b.dataset.grl));
   document.querySelectorAll('[data-ged]').forEach(b => b.onclick = () => asgEdit(b.dataset.ged));
   document.querySelectorAll('[data-gdel]').forEach(b => b.onclick = () => asgDelete(b.dataset.gdel));
+  document.querySelectorAll('[data-clickbtn]').forEach(b => b.onclick = () => { const t = document.getElementById(b.dataset.clickbtn); if (t) t.click(); });
   document.querySelectorAll('[data-garch]').forEach(b => b.onclick = async e => { e.preventDefault(); const bk = b.dataset.garch;
     if (!confirm(`「${bk}」 학습을 종료할까요?\n현재 학습 목록에서 숨겨지고(학생 화면에서도), 「학습 종료한 교재」로 옮겨져요.\n풀이 기록은 그대로 남아 있고 언제든 되돌릴 수 있어요.`)) return;
     const { error } = await S.sb.from('book_archive').upsert({ student_id: sid, school_book: bk }, { onConflict: 'student_id,school_book' });
