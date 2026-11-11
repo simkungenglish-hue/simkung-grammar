@@ -34,6 +34,7 @@ const stuMin = sec => { const m = Math.round((sec || 0) / 60); return m <= 0 ? (
   .bkg-s em{font-style:normal;font-size:12px;font-weight:700;padding:2px 9px;border-radius:99px}
   .bkg-s em.f{background:#ecfdf5;color:#047857}.bkg-s em.i{background:#eef2ff;color:#4338ca}.bkg-s em.n{background:#f1f5f9;color:#64748b}
   .bkg-bar{display:block;height:6px;background:#e2e8f0;border-radius:99px;overflow:hidden}.bkg-bar i{display:block;height:100%;background:#10b981}
+  .kpis.k5{grid-template-columns:repeat(5,1fr)}@media(max-width:900px){.kpis.k5{grid-template-columns:repeat(2,1fr)}}
   .bkgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:10px;margin-bottom:8px;align-items:start}
   .bkgrid .bkgrp{margin:0}.bkgrid .bkgrp[open]{grid-column:1/-1}
   .bkgrp>summary{padding:10px 12px;gap:10px}
@@ -265,13 +266,27 @@ function stuView(sid) {
       <div class="stu-set">오늘 새 ${ivTodayD.new_n}/${ivA.per_day}개 · 복습 ${ivTodayD.rev_n}개 · 정답 ${ivTodayD.ok}/${ivTodayD.total} · 시간 ${ivTodayD.sec ? stuMin(ivTodayD.sec) : '-'}${(ivA.settings && ivA.settings.hint === false) ? ' · 쓰기 힌트 끔' : ''}</div>
       ${lastV ? `<div class="tiny" style="margin-top:8px">최근 학습 (맞힘/시도)</div><div class="spills">${lastV}</div>` : ''}</div>`));
   }
+  const lastStudy = (() => {
+    const c = [];
+    if (at[0] && at[0].submitted_at) c.push(['문법', at[0].submitted_at]);
+    at.forEach(x => { if (x.submitted_at) c.push(['문법', x.submitted_at]); });
+    STU.vprog.filter(p => p.student_id === sid).forEach(p => p.done_at && c.push(['어휘', p.done_at]));
+    (STU.pprog || []).filter(p => p.student_id === sid).forEach(p => p.done_at && c.push(['내신 본문', p.done_at]));
+    (STU.ivP || []).filter(p => p.student_id === sid).forEach(p => p.last_at && c.push(['불규칙동사', p.last_at]));
+    let best = null; c.forEach(x => { if (!best || new Date(x[1]) > new Date(best[1])) best = x; });
+    if (!best) return { t: null };
+    const m = Math.max(0, Math.round((Date.now() - new Date(best[1])) / 60000)), d = Math.floor(m / 1440);
+    const ago = m < 1 ? '방금' : m < 60 ? m + '분 전' : m < 1440 ? Math.floor(m / 60) + '시간 전' : d + '일 전';
+    return { t: best[1], src: best[0], ago };
+  })();
   $('#tb').innerHTML = `
     <div class="row between noprint" style="margin-bottom:8px"><button class="btn ghost small" id="stuback">← 전체 학생</button>
       <span class="row" style="gap:6px"><select id="stuswitch">${T.students.map(x => `<option value="${x.id}" ${x.id === sid ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select><button class="btn ghost small" id="sturl">새로고침</button></span></div>
     <section class="hero"><div><small>학생 화면</small><h1>${esc(s.name)} <span style="font-size:15px;font-weight:600;opacity:.8">${esc(s.grade || '')}</span></h1>
       <p>어휘 ${vInfo.length}권 · 문법 ${asgs.length}단원 · 내신 본문 ${pInfo.length}개 배정${gToday.length || vT0 ? ` · 오늘 ${vT0 + gSec(gToday) > 0 ? stuMin(vT0 + gSec(gToday)) : '학습 있음'} 학습` : ' · 오늘 학습 없음'}</p></div>
       <div class="upd">마지막 새로고침<br><b>${fmtDT(T.lastLoad)}</b></div></section>
-    <section class="kpis">
+    <section class="kpis k5">
+      <div class="kpi"><small>마지막 학습</small><b style="font-size:1.35rem">${lastStudy.t ? fmtDT(lastStudy.t) : '-'}</b><span>${lastStudy.t ? esc(lastStudy.src) + ' · ' + lastStudy.ago : '학습 기록 없음'}</span></div>
       <div class="kpi"><small>오늘 학습 시간</small><b>${stuMin(vT0 + gSec(gToday))}</b><span>어휘 ${stuMin(vT0)} · 문법 ${stuMin(gSec(gToday))}</span></div>
       <div class="kpi"><small>최근 7일</small><b>${stuMin(vT7 + gSec(gAll7))}</b><span>어휘 ${stuMin(vT7)} · 문법 ${stuMin(gSec(gAll7))}</span></div>
       <div class="kpi"><small>어휘</small><b>${vo.learned || 0}<em>개</em></b><span>외운 단어 · 밀린 복습 ${vo.due || 0}개</span></div>
