@@ -245,10 +245,10 @@ function stuView(sid) {
       <div class="bkg-body"><div class="bkg-act">${isArch ? `<span class="tiny">학습 종료한 교재예요. 기록은 그대로 남아 있어요.</span><button class="btn small" data-gun="${esc(b)}">↩ 다시 학습 중으로</button>` : `<span class="tiny">이 교재 학습이 모두 끝났다면</span><button class="btn small" data-garch="${esc(b)}">📦 학습 종료</button>`}</div>${L.map(x => x.html).join('')}</div></details>`;
   };
   const gBooks = md => [...gGroups.keys()].filter(b => !arSet.has(b) && (md === 'naesin') === (bookKind(b) === 'naesin')).sort((x, y) => bookRank(x) - bookRank(y) || x.localeCompare(y, 'ko'));
-  const gGen = gBooks('general').length ? `<div class="bkgrid">${gBooks('general').map(gBookHtml).join('')}</div>` : '';
+  const gGen = gBooks('general').length ? `<div class="bkgrid">${gBooks('general').map(b => gBookHtml(b, false)).join('')}</div>` : '';
   const gArch = [...gGroups.keys()].filter(b => arSet.has(b)).sort((x, y) => x.localeCompare(y, 'ko'));
   const gArchHtml = gArch.length ? `<details class="archsec"><summary>📦 학습 종료한 교재 ${gArch.length}개 <span class="tiny">(눌러서 보기)</span></summary><div class="bkgrid">${gArch.map(b => gBookHtml(b, true)).join('')}</div></details>` : '';
-  const gNae = gBooks('naesin').length ? `<div class="bkgrid">${gBooks('naesin').map(gBookHtml).join('')}</div>` : '';
+  const gNae = gBooks('naesin').length ? `<div class="bkgrid">${gBooks('naesin').map(b => gBookHtml(b, false)).join('')}</div>` : '';
 
   /* 내신 본문 */
   const pInfo = stuPassInfo(sid);
