@@ -59,6 +59,8 @@ const stuMin = sec => { const m = Math.round((sec || 0) / 60); return m <= 0 ? (
   .spill.now{background:#eef2ff;color:#4338ca;border-color:#c7d2fe;box-shadow:0 0 0 2px #e0e7ff}
   .spill.bad{background:#fff7ed;color:#c2410c;border-color:#fed7aa}
   .spills{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+  .calk{cursor:pointer;transition:.15s}.calk:hover{box-shadow:0 0 0 2px #a5b4fc;transform:translateY(-1px)}
+  .hbtns{display:flex;gap:6px;margin-top:8px;justify-content:flex-end;flex-wrap:wrap}.hbtns button{background:#fff;color:#4338ca;border:0;border-radius:10px;padding:6px 11px;font-weight:700;font-size:13px;cursor:pointer}
   .stu-sec{display:flex;align-items:center;justify-content:space-between;margin:18px 0 8px}
   .stu-sec h2{margin:0}
   .tbars .tr{display:grid;grid-template-columns:54px 1fr 90px;gap:8px;align-items:center;font-size:12px;margin:3px 0}
@@ -78,11 +80,11 @@ async function stuLoad(force) {
   try { if (typeof loadPT === 'function' && (force || !PT.loaded)) await loadPT(); } catch (e) { /* 내신 본문이 없어도 계속 */ }
   try { STU.vprog = await vFetchAll(() => sb.from('vocab_progress').select('student_id,unit_id,step,score,total,time_sec,done_at').order('student_id').order('unit_id').order('step')); } catch (e) { STU.vprog = []; }
   try { STU.pprog = await vFetchAll(() => sb.from('passage_progress').select('student_id,passage_id,step,score,total,time_sec,done_at').order('student_id').order('passage_id').order('step')); } catch (e) { STU.pprog = []; }
-  try { const r = await sb.rpc('vocab_time_overview', { p_days: 30 }); STU.vtime = r.error ? [] : (r.data || []); } catch (e) { STU.vtime = []; }
+  try { const r = await sb.rpc('vocab_time_overview', { p_days: 120 }); STU.vtime = r.error ? [] : (r.data || []); } catch (e) { STU.vtime = []; }
   try {
     const g = await sb.from('iv_assign').select('*'); STU.ivA = g.error ? [] : (g.data || []);
     STU.ivP = await vFetchAll(() => sb.from('iv_progress').select('student_id,verb_no,box,due_on,ok,bad,last_at').order('student_id').order('verb_no'));
-    const d = await sb.from('iv_day').select('*').gte('day', addDays(kstToday(), -30)); STU.ivD = d.error ? [] : (d.data || []);
+    const d = await sb.from('iv_day').select('*').gte('day', addDays(kstToday(), -120)); STU.ivD = d.error ? [] : (d.data || []);
   } catch (e) { STU.ivA = []; STU.ivP = []; STU.ivD = []; }
   try { const r = await sb.from('book_archive').select('*'); STU.arch = r.error ? [] : (r.data || []); } catch (e) { STU.arch = []; }
   STU.loaded = true;
@@ -298,11 +300,11 @@ function stuView(sid) {
       <span class="row" style="gap:6px"><select id="stuswitch">${T.students.map(x => `<option value="${x.id}" ${x.id === sid ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select><button class="btn ghost small" id="sturl">새로고침</button></span></div>
     <section class="hero"><div><small>학생 화면</small><h1>${esc(s.name)} <span style="font-size:15px;font-weight:600;opacity:.8">${esc(s.grade || '')}</span></h1>
       <p>어휘 ${vInfo.length}권 · 문법 ${asgs.length}단원 · 내신 본문 ${pInfo.length}개 배정${gToday.length || vT0 ? ` · 오늘 ${vT0 + gSec(gToday) > 0 ? stuMin(vT0 + gSec(gToday)) : '학습 있음'} 학습` : ' · 오늘 학습 없음'}</p></div>
-      <div class="upd">마지막 새로고침<br><b>${fmtDT(T.lastLoad)}</b></div></section>
+      <div class="upd">마지막 새로고침<br><b>${fmtDT(T.lastLoad)}</b><div class="hbtns noprint"><button id="stureport2">📄 학습 리포트 만들기</button><button id="stureport">문법 상세·오답노트</button></div></div></section>
     <section class="kpis k5">
-      <div class="kpi"><small>마지막 학습</small><b style="font-size:1.35rem">${lastStudy.t ? fmtDT(lastStudy.t) : '-'}</b><span>${lastStudy.t ? esc(lastStudy.src) + ' · ' + lastStudy.ago : '학습 기록 없음'}</span></div>
-      <div class="kpi"><small>오늘 학습 시간</small><b>${stuMin(vT0 + gSec(gToday))}</b><span>어휘 ${stuMin(vT0)} · 문법 ${stuMin(gSec(gToday))}</span></div>
-      <div class="kpi"><small>최근 7일</small><b>${stuMin(vT7 + gSec(gAll7))}</b><span>어휘 ${stuMin(vT7)} · 문법 ${stuMin(gSec(gAll7))}</span></div>
+      <div class="kpi calk" data-cal="1" title="눌러서 학습 달력 보기"><small>마지막 학습 📅</small><b style="font-size:1.35rem">${lastStudy.t ? fmtDT(lastStudy.t) : '-'}</b><span>${lastStudy.t ? esc(lastStudy.src) + ' · ' + lastStudy.ago : '학습 기록 없음'}</span></div>
+      <div class="kpi calk" data-cal="1" title="눌러서 학습 달력 보기"><small>오늘 학습 시간 📅</small><b>${stuMin(vT0 + gSec(gToday))}</b><span>어휘 ${stuMin(vT0)} · 문법 ${stuMin(gSec(gToday))}</span></div>
+      <div class="kpi calk" data-cal="1" title="눌러서 학습 달력 보기"><small>최근 7일 (총 학습시간) 📅</small><b>${stuMin(vT7 + gSec(gAll7))}</b><span>어휘 ${stuMin(vT7)} · 문법 ${stuMin(gSec(gAll7))}</span></div>
       <div class="kpi"><small>어휘</small><b>${vo.learned || 0}<em>개</em></b><span>외운 단어 · 밀린 복습 ${vo.due || 0}개</span></div>
       <div class="kpi"><small>문법 오늘</small><b>${gToday.length}<em>회</em></b><span>${gr.length ? '정답률 ' + pct(gr.filter(a => a.is_correct).length, gr.length) + '%' : '채점 완료 없음'}</span></div>
     </section>
@@ -310,11 +312,7 @@ function stuView(sid) {
     <div class="stu-sec"><h2>📚 지금 학습 중</h2><div class="row noprint" style="gap:6px;flex-wrap:wrap"><button class="btn small" id="vadd">+ 단어장</button><button class="btn small" id="gadd">+ 문법 단원</button><button class="btn small" id="padd">+ 내신 본문</button><button class="btn small" id="ivset">${ivA ? '⚙ 불규칙동사' : '+ 불규칙동사'}</button></div></div>
     <div class="bkgrid">${vHtml}${gGen}${gNae}${pHtml}${ivHtml}${emptyCards}</div>
     ${gArchHtml}
-    ${vRecent ? `<div class="card" style="margin-top:12px"><h3 style="margin:0 0 6px">최근 어휘 학습</h3><div class="tablewrap"><table><thead><tr><th>시각</th><th>교재 · 유닛</th><th>단계</th><th>점수</th><th>시간</th></tr></thead><tbody>${vRecent}</tbody></table></div></div>` : ''}
-
-    <div class="stu-sec"><h2>⏱ 학습 시간 (최근 14일)</h2></div>
-    <div class="card tbars"><div class="tiny" style="margin-bottom:6px"><span class="spill" style="background:#eef2ff;color:#4338ca">■ 어휘</span> <span class="spill" style="background:#fffbeb;color:#b45309">■ 문법</span> · 학생이 화면을 보며 푼 시간이에요(3분 이상 가만히 있으면 뺐어요)</div>${timeHtml}</div>
-    <div class="row noprint" style="margin-top:12px;gap:8px;flex-wrap:wrap"><button class="btn ghost" id="stureport">이 학생 리포트·오답노트 보기</button></div>`;
+    ${vRecent ? `<div class="card" style="margin-top:12px"><h3 style="margin:0 0 6px">최근 어휘 학습</h3><div class="tablewrap"><table><thead><tr><th>시각</th><th>교재 · 유닛</th><th>단계</th><th>점수</th><th>시간</th></tr></thead><tbody>${vRecent}</tbody></table></div></div>` : ''}`;
   stuBind(sid);
 }
 
@@ -324,6 +322,8 @@ function stuBind(sid) {
   $('#stuback').onclick = () => { T.stuSid = null; tabToday(); window.scrollTo(0, 0); };
   $('#sturl').onclick = async () => { await stuReload(sid); toast('새로 불러왔어요'); };
   $('#stuswitch').onchange = e => stuOpen(e.target.value);
+  document.querySelectorAll('[data-cal]').forEach(k => k.onclick = () => stuCal(sid));
+  const _r2 = document.getElementById('stureport2'); if (_r2) _r2.onclick = () => stuReport(sid, 30);
   $('#stureport').onclick = () => { T.stuSid = null; T.tab = 'students'; T.view = sid; drawTeacher(); };
   $('#vadd').onclick = () => stuVAssign(sid);
   $('#ivset').onclick = () => stuIvSet(sid);
