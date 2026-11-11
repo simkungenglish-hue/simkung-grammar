@@ -35,6 +35,9 @@ const stuMin = sec => { const m = Math.round((sec || 0) / 60); return m <= 0 ? (
   .bkg-s em.f{background:#ecfdf5;color:#047857}.bkg-s em.i{background:#eef2ff;color:#4338ca}.bkg-s em.n{background:#f1f5f9;color:#64748b}
   .bkg-bar{display:block;height:6px;background:#e2e8f0;border-radius:99px;overflow:hidden}.bkg-bar i{display:block;height:100%;background:#10b981}
   .kpis.k5{grid-template-columns:repeat(5,1fr)}@media(max-width:900px){.kpis.k5{grid-template-columns:repeat(2,1fr)}}
+  .bkg-act{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 4px 8px;border-bottom:1px dashed #e2e8f0}
+  .bkgrp.arch{opacity:.85;background:#f8fafc}
+  .archsec{margin-top:10px}.archsec>summary{cursor:pointer;font-weight:700;color:#64748b;padding:6px 2px}
   .bkgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:10px;margin-bottom:8px;align-items:start}
   .bkgrid .bkgrp{margin:0}.bkgrid .bkgrp[open]{grid-column:1/-1}
   .bkgrp>summary{padding:10px 12px;gap:10px}
@@ -79,6 +82,7 @@ async function stuLoad(force) {
     STU.ivP = await vFetchAll(() => sb.from('iv_progress').select('student_id,verb_no,box,due_on,ok,bad,last_at').order('student_id').order('verb_no'));
     const d = await sb.from('iv_day').select('*').gte('day', addDays(kstToday(), -30)); STU.ivD = d.error ? [] : (d.data || []);
   } catch (e) { STU.ivA = []; STU.ivP = []; STU.ivD = []; }
+  try { const r = await sb.from('book_archive').select('*'); STU.arch = r.error ? [] : (r.data || []); } catch (e) { STU.arch = []; }
   STU.loaded = true;
 }
 
@@ -118,8 +122,10 @@ function stuPassInfo(sid) {
 const stuUnitName = u => (u.title || ('Unit ' + u.ord)).replace(/\s+/g, ' ').slice(0, 24);
 
 /* ---------- ① 오늘 현황 카드: 등록된 학생만 간단히 (자세한 건 학생 화면에서) ---------- */
+const stuArchSet = sid => new Set((STU.arch || []).filter(r => r.student_id === sid).map(r => r.school_book));
 progressRows = function (sid) {
-  let v = 0, g = (T.asg || []).filter(a => a.student_id === sid).length, p = 0;
+  const _ar = stuArchSet(sid);
+  let v = 0, g = (T.asg || []).filter(a => a.student_id === sid && !_ar.has(((T.uById[a.unit_id] || {}).school_book) || '교재 미정')).length, p = 0;
   try { v = stuVocabInfo(sid).length; p = stuPassInfo(sid).length; } catch (e) { /* 정보가 없어도 카드는 보여요 */ }
   const chip = (ic, n, un) => `<span class="sgchip ${n ? '' : 'zero'}">${ic} ${n}${un}</span>`;
   const ia = (STU.ivA || []).find(x => x.student_id === sid), iN = ia ? (ia.stages || []).filter(n => IV_STAGES.includes(n)).length : 0;
@@ -207,7 +213,10 @@ function stuView(sid) {
     return `<tr><td class="tiny">${fmtDT(r.done_at)}</td><td>${esc(b ? b.title : '')} <b>${esc(u ? (u.title || 'Unit ' + u.ord) : '')}</b></td><td>${esc(SV_STEP[r.step] || r.step)}</td><td>${r.total ? r.score + '/' + r.total : '-'}</td><td>${stuMin(r.time_sec)}</td></tr>`; }).join('');
 
   /* 문법 · 내신(교과서) */
-  const asgs = T.asg.filter(a => a.student_id === sid);
+  const arSet = stuArchSet(sid);
+  const asgsAll = T.asg.filter(a => a.student_id === sid);
+  const bookOfA = a => ((T.uById[a.unit_id] || {}).school_book) || '교재 미정';
+  const asgs = asgsAll.filter(a => !arSet.has(bookOfA(a)));
   const kindOf = a => { const u = T.uById[a.unit_id]; return bookKind(u && u.school_book || '교재 미정'); };
   const gCard = a => {
     const u = T.uById[a.unit_id]; if (!u) return null;
@@ -224,19 +233,21 @@ function stuView(sid) {
       <div class="spills">${pills || '<span class="tiny">공개된 문제가 아직 없어요</span>'}</div></div>`;
     return { a, u, html, fin, started, pcts, n: mine.length, sec: timeSum(mine).sec || 0 };
   };
-  const gAll = asgs.map(gCard).filter(Boolean);
+  const gAll = asgsAll.map(gCard).filter(Boolean);
   const gGroups = new Map(); gAll.forEach(x => { const b = x.u.school_book || '교재 미정'; if (!gGroups.has(b)) gGroups.set(b, []); gGroups.get(b).push(x); });
-  const gBookHtml = b => {
+  const gBookHtml = (b, isArch) => {
     const L = gGroups.get(b).sort((p, q) => unitSort(p.u, q.u)), nf = L.filter(x => x.fin).length, ni = L.filter(x => !x.fin && x.started).length, nn = L.length - nf - ni;
     const allp = L.flatMap(x => x.pcts), avg = allp.length ? Math.round(allp.reduce((p, q) => p + q, 0) / allp.length) : null;
     const tot = L.reduce((p, x) => p + x.sec, 0), cnt = L.reduce((p, x) => p + x.n, 0);
-    return `<details class="bkgrp"><summary><span class="bkg-cv">${cvImg(b, 'big') || '<span class="bkg-ph">📗</span>'}</span>
+    return `<details class="bkgrp ${isArch ? 'arch' : ''}"><summary><span class="bkg-cv">${cvImg(b, 'big') || '<span class="bkg-ph">📗</span>'}</span>
       <span class="bkg-i"><b>${esc(b)}</b><span class="bkg-s"><em class="f">✓ 완료 ${nf}</em><em class="i">▶ 진행 ${ni}</em><em class="n">· 시작 전 ${nn}</em><span class="tiny">총 ${L.length}단원${avg != null ? ' · 평균 ' + avg + '%' : ''} · 풀이 ${cnt}번${tot ? ' · ' + fmtDur(tot) : ''}</span></span>
       <span class="bkg-bar"><i style="width:${Math.round(nf / L.length * 100)}%"></i></span></span></summary>
-      <div class="bkg-body">${L.map(x => x.html).join('')}</div></details>`;
+      <div class="bkg-body"><div class="bkg-act">${isArch ? `<span class="tiny">학습 종료한 교재예요. 기록은 그대로 남아 있어요.</span><button class="btn small" data-gun="${esc(b)}">↩ 다시 학습 중으로</button>` : `<span class="tiny">이 교재 학습이 모두 끝났다면</span><button class="btn small" data-garch="${esc(b)}">📦 학습 종료</button>`}</div>${L.map(x => x.html).join('')}</div></details>`;
   };
-  const gBooks = md => [...gGroups.keys()].filter(b => (md === 'naesin') === (bookKind(b) === 'naesin')).sort((x, y) => bookRank(x) - bookRank(y) || x.localeCompare(y, 'ko'));
+  const gBooks = md => [...gGroups.keys()].filter(b => !arSet.has(b) && (md === 'naesin') === (bookKind(b) === 'naesin')).sort((x, y) => bookRank(x) - bookRank(y) || x.localeCompare(y, 'ko'));
   const gGen = gBooks('general').length ? `<div class="bkgrid">${gBooks('general').map(gBookHtml).join('')}</div>` : '';
+  const gArch = [...gGroups.keys()].filter(b => arSet.has(b)).sort((x, y) => x.localeCompare(y, 'ko'));
+  const gArchHtml = gArch.length ? `<details class="archsec"><summary>📦 학습 종료한 교재 ${gArch.length}개 <span class="tiny">(눌러서 보기)</span></summary><div class="bkgrid">${gArch.map(b => gBookHtml(b, true)).join('')}</div></details>` : '';
   const gNae = gBooks('naesin').length ? `<div class="bkgrid">${gBooks('naesin').map(gBookHtml).join('')}</div>` : '';
 
   /* 내신 본문 */
@@ -297,7 +308,7 @@ function stuView(sid) {
     ${vRecent ? `<div class="card"><h3 style="margin:0 0 6px">최근 어휘 학습</h3><div class="tablewrap"><table><thead><tr><th>시각</th><th>교재 · 유닛</th><th>단계</th><th>점수</th><th>시간</th></tr></thead><tbody>${vRecent}</tbody></table></div></div>` : ''}
 
     <div class="stu-sec"><h2>📗 문법 학습</h2><button class="btn small" id="gadd">+ 문법 단원 배정</button></div>
-    ${gGen ? `<h3 class="tiny" style="margin:4px 0">일반 교재</h3>${gGen}` : ''}${gNae ? `<h3 class="tiny" style="margin:10px 0 4px">내신 대비</h3>${gNae}` : ''}${!gGen && !gNae ? '<div class="card muted">배정된 문법 단원이 없어요.</div>' : ''}
+    ${gGen ? `<h3 class="tiny" style="margin:4px 0">일반 교재</h3>${gGen}` : ''}${gNae ? `<h3 class="tiny" style="margin:10px 0 4px">내신 대비</h3>${gNae}` : ''}${!gGen && !gNae ? '<div class="card muted">' + (gArch.length ? '지금 학습 중인 문법 교재가 없어요. 새 교재를 배정해 주세요.' : '배정된 문법 단원이 없어요.') + '</div>' : ''}${gArchHtml}
 
     <div class="stu-sec"><h2>📖 내신 본문</h2><button class="btn small" id="padd">+ 본문 배정</button></div>${pOut}
 
@@ -366,6 +377,13 @@ function stuBind(sid) {
   document.querySelectorAll('[data-grl]').forEach(b => b.onclick = () => relearnModal(b.dataset.grl));
   document.querySelectorAll('[data-ged]').forEach(b => b.onclick = () => asgEdit(b.dataset.ged));
   document.querySelectorAll('[data-gdel]').forEach(b => b.onclick = () => asgDelete(b.dataset.gdel));
+  document.querySelectorAll('[data-garch]').forEach(b => b.onclick = async e => { e.preventDefault(); const bk = b.dataset.garch;
+    if (!confirm(`「${bk}」 학습을 종료할까요?\n현재 학습 목록에서 숨겨지고(학생 화면에서도), 「학습 종료한 교재」로 옮겨져요.\n풀이 기록은 그대로 남아 있고 언제든 되돌릴 수 있어요.`)) return;
+    const { error } = await S.sb.from('book_archive').upsert({ student_id: sid, school_book: bk }, { onConflict: 'student_id,school_book' });
+    if (error) return toast(errText(error), 4000); toast('학습 종료로 옮겼어요'); await stuReload(sid); });
+  document.querySelectorAll('[data-gun]').forEach(b => b.onclick = async e => { e.preventDefault();
+    const { error } = await S.sb.from('book_archive').delete().eq('student_id', sid).eq('school_book', b.dataset.gun);
+    if (error) return toast(errText(error), 4000); toast('다시 학습 중으로 되돌렸어요'); await stuReload(sid); });
   /* 내신 본문 */
   document.querySelectorAll('[data-ptr]').forEach(sel => sel.onchange = async () => {
     const { error } = await S.sb.from('passage_assignments').update({ track: sel.value }).eq('id', sel.dataset.ptr);

@@ -179,6 +179,7 @@ async function loadStudent() {
   const err = a.error || c.error || q.error || t.error;
   if (err) throw err;
   ST.asg = (a.data || []).filter(x => x.units && x.units.status === 'published');
+  try { const ar = await S.sb.from('book_archive').select('school_book').eq('student_id', u); const hid = new Set((ar.data || []).map(r => r.school_book)); if (hid.size) ST.asg = ST.asg.filter(y => !hid.has(y.units.school_book)); } catch (e) { /* 표가 없어도 계속 */ }
   // 부트캠프 학생: 부트캠프 단원만 보여요. 다른 배정과 지금까지의 풀이 기록·XP는 지우지 않고 그대로 보존돼요.
   ST.bootcamp = ST.asg.some(x => x.units.school_book === '부트캠프');
   ST.asgAll = ST.asg;
