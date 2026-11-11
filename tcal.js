@@ -184,7 +184,7 @@
       return `<tr><td>${a.submitted_at ? dayKey(a.submitted_at).slice(5).replace('-', '/') : ''}</td><td>${E(clip((u.lesson ? u.lesson + ' ' : '') + (u.title || ''), 26))}</td><td>${E(clip(q.prompt || q.ko || '', 56))}</td><td>${a.status === 'graded' ? (a.is_correct ? '✓' : '✗') : '-'}</td><td class="n">${dur(a.time_spent_sec)}</td></tr>`; }).join('');
     const grd = allG.filter(a => a.status === 'graded'), okN = grd.filter(a => a.is_correct).length;
     const rangeTxt = range ? `최근 ${range}일 (${from.slice(5).replace('-', '/')} ~ ${kst.slice(5).replace('-', '/')})` : '전체 기간';
-    const sec = (t, head, body) => body ? `<h2>${t}</h2><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>` : '';
+    let secN = 0; const sec = (t, head, body) => body ? `<h2>${++secN}. ${t.replace(/^\d+\.\s*/, '')}</h2><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>` : '';
     const old = document.getElementById('srp'); if (old) old.remove();
     const el = document.createElement('div'); el.id = 'srp';
     el.innerHTML = `<div class="srp-bar"><button class="btn" id="srp-pr">🖨 인쇄 / PDF 저장</button>
