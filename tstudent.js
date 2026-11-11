@@ -34,6 +34,12 @@ const stuMin = sec => { const m = Math.round((sec || 0) / 60); return m <= 0 ? (
   .bkg-s em{font-style:normal;font-size:12px;font-weight:700;padding:2px 9px;border-radius:99px}
   .bkg-s em.f{background:#ecfdf5;color:#047857}.bkg-s em.i{background:#eef2ff;color:#4338ca}.bkg-s em.n{background:#f1f5f9;color:#64748b}
   .bkg-bar{display:block;height:6px;background:#e2e8f0;border-radius:99px;overflow:hidden}.bkg-bar i{display:block;height:100%;background:#10b981}
+  .bkgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:10px;margin-bottom:8px;align-items:start}
+  .bkgrid .bkgrp{margin:0}.bkgrid .bkgrp[open]{grid-column:1/-1}
+  .bkgrp>summary{padding:10px 12px;gap:10px}
+  .bkgrp:not([open])>summary .tiny{display:none}
+  .bkg-cv .cvs.big{width:46px;height:64px}.bkg-ph{width:46px;height:64px}
+  .bkg-i>b{font-size:15px}
   .bkg-body{padding:6px 12px 10px}
   .gu{padding:9px 4px;border-top:1px dashed #e2e8f0}.gu:first-child{border-top:0}
   .gu-h{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:flex-start}
@@ -220,14 +226,14 @@ function stuView(sid) {
     const L = gGroups.get(b).sort((p, q) => unitSort(p.u, q.u)), nf = L.filter(x => x.fin).length, ni = L.filter(x => !x.fin && x.started).length, nn = L.length - nf - ni;
     const allp = L.flatMap(x => x.pcts), avg = allp.length ? Math.round(allp.reduce((p, q) => p + q, 0) / allp.length) : null;
     const tot = L.reduce((p, x) => p + x.sec, 0), cnt = L.reduce((p, x) => p + x.n, 0);
-    return `<details class="bkgrp" open><summary><span class="bkg-cv">${cvImg(b, 'big') || '<span class="bkg-ph">📗</span>'}</span>
+    return `<details class="bkgrp"><summary><span class="bkg-cv">${cvImg(b, 'big') || '<span class="bkg-ph">📗</span>'}</span>
       <span class="bkg-i"><b>${esc(b)}</b><span class="bkg-s"><em class="f">✓ 완료 ${nf}</em><em class="i">▶ 진행 ${ni}</em><em class="n">· 시작 전 ${nn}</em><span class="tiny">총 ${L.length}단원${avg != null ? ' · 평균 ' + avg + '%' : ''} · 풀이 ${cnt}번${tot ? ' · ' + fmtDur(tot) : ''}</span></span>
       <span class="bkg-bar"><i style="width:${Math.round(nf / L.length * 100)}%"></i></span></span></summary>
       <div class="bkg-body">${L.map(x => x.html).join('')}</div></details>`;
   };
   const gBooks = md => [...gGroups.keys()].filter(b => (md === 'naesin') === (bookKind(b) === 'naesin')).sort((x, y) => bookRank(x) - bookRank(y) || x.localeCompare(y, 'ko'));
-  const gGen = gBooks('general').map(gBookHtml).join('');
-  const gNae = gBooks('naesin').map(gBookHtml).join('');
+  const gGen = gBooks('general').length ? `<div class="bkgrid">${gBooks('general').map(gBookHtml).join('')}</div>` : '';
+  const gNae = gBooks('naesin').length ? `<div class="bkgrid">${gBooks('naesin').map(gBookHtml).join('')}</div>` : '';
 
   /* 내신 본문 */
   const pInfo = stuPassInfo(sid);
