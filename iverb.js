@@ -3,25 +3,35 @@
    ① 보고 듣기(색깔 카드·발음·예문) → ② 쓰기 연습 → ③ 문장 빈칸 → ④ 테스트 → 간격 복습(1·3·7·14·30·60일) */
 'use strict';
 
-const IV_ALL = [...IV_A, ...IV_B, ...IV_C].map(r => ({
-  no: r[0], base: r[1], past: r[2], pp: r[3], ko: r[4], kp: r[5], kpp: r[6],
-  ex: [[r[7], r[8]], [r[9], r[10]], [r[11], r[12]]], reg: r[0] >= 78
-}));
-IV_ALL.forEach(v => { v.pat = v.reg ? 'REG' : v.base === v.past && v.past === v.pp ? 'AAA' : v.base === v.pp ? 'ABA' : v.past === v.pp ? 'ABB' : 'ABC'; });
+/* 기본 트랙: PDF 1~77번(불규칙) = 1~8단계.  교과 빈출: 추가 불규칙·혼동 동사 + 철자가 바뀌는 규칙동사 = 빈출 1~7 (단계 21~27)
+   단순히 -ed만 붙는 규칙동사(78번~)는 뺐어요. */
+const IV_ROW = r => ({ no: r[0], base: r[1], past: r[2], pp: r[3], ko: r[4], kp: r[5], kpp: r[6], ex: [[r[7], r[8]], [r[9], r[10]], [r[11], r[12]]] });
+const IV_SPL = new Set([143, 144, 145, 149, 150, 151, 301, 302, 303, 304, 305, 306, 307, 308, 309, 310, 311, 312, 313]);   // 철자가 바뀌는 규칙동사
+const IV_EX_ORDER = [201, 202, 301, 203, 204, 302, 245, 303, 223, 238, 205, 206, 207, 208, 209, 210, 211, 212, 213, 214, 215, 216, 217, 218, 219, 220, 221, 222, 224, 225,
+  226, 227, 228, 229, 230, 231, 232, 233, 234, 235, 236, 237, 239, 240, 241, 242, 243, 244, 143, 144, 145, 304, 305, 306, 307, 308, 309, 310, 149, 150, 151, 311, 312, 313];
+const IV_SRC = new Map([...IV_A, ...IV_B, ...IV_C, ...IV_D].map(r => [r[0], r]));
+const IV_ALL = [...Array.from({ length: 77 }, (_, i) => i + 1), ...IV_EX_ORDER].map(n => IV_ROW(IV_SRC.get(n)));
+IV_ALL.forEach(v => { v.reg = IV_SPL.has(v.no); v.pat = v.reg ? 'SPL' : v.base === v.past && v.past === v.pp ? 'AAA' : v.base === v.pp ? 'ABA' : v.past === v.pp ? 'ABB' : 'ABC'; v.ex_set = v.no > 77 || v.no === 0 ? 1 : 0; });
 const IV_BY = new Map(IV_ALL.map(v => [v.no, v]));
-const IV_STAGE_N = 15, IV_STAGE_SIZE = 10;
-const ivStageOf = no => Math.min(IV_STAGE_N, Math.floor((no - 1) / IV_STAGE_SIZE) + 1);
+const IV_STAGE_SIZE = 10;
+const IV_STAGE_MAIN = Array.from({ length: 8 }, (_, i) => i + 1), IV_STAGE_EX = Array.from({ length: Math.ceil(IV_EX_ORDER.length / IV_STAGE_SIZE) }, (_, i) => 21 + i);
+const IV_STAGES = [...IV_STAGE_MAIN, ...IV_STAGE_EX];
+const ivStageMap = new Map();
+IV_ALL.forEach(v => { if (v.no <= 77) ivStageMap.set(v.no, Math.floor((v.no - 1) / IV_STAGE_SIZE) + 1); });
+IV_EX_ORDER.forEach((n, i) => ivStageMap.set(n, 21 + Math.floor(i / IV_STAGE_SIZE)));
+const ivStageOf = no => ivStageMap.get(no) || 0;
 const ivStageVerbs = s => IV_ALL.filter(v => ivStageOf(v.no) === s);
-const ivStageBand = s => s <= 5 ? '핵심 불규칙' : s <= 8 ? '확장 불규칙' : '규칙(-ed) 정리';
+const ivStageName = n => n > 20 ? `빈출 ${n - 20}` : `${n}단계`;
+const ivStageBand = s => s <= 5 ? '핵심 불규칙' : s <= 8 ? '확장 불규칙' : '교과 빈출';
 const IV_PAT = {
   AAA: ['🟰', '모양이 안 변해요', '현재 = 과거 = p.p'],
   ABA: ['🔁', '현재와 p.p가 같아요', '현재 = p.p'],
   ABB: ['🤝', '과거와 p.p가 같아요', '과거 = p.p'],
   ABC: ['🌈', '세 개가 모두 달라요', '하나씩 따로 외워요'],
-  REG: ['➕', '-ed만 붙여요', '과거 = p.p (규칙)']
+  SPL: ['✏️', '철자가 바뀌어요', 'y→ied · 마지막 자음을 겹쳐요']
 };
-const IV_SAY_BASE = { use: 'to use', close: 'to close', live: 'to live', lead: 'to lead', read: 'to read', wind: 'to wind', am: 'I am', are: 'you are', is: 'he is' };
-const IV_SAY_PAST = { read: 'red', was: 'was', been: 'been' };
+const IV_SAY_BASE = { use: 'to use', close: 'to close', live: 'to live', lead: 'to lead', read: 'to read', wind: 'to wind', am: 'I am', are: 'you are', is: 'he is', tear: 'to tear', lie: 'to lie', lay: 'to lay' };
+const IV_SAY_PAST = { read: 'red', wound: 'wownd' };
 const IV = { ok: false, loaded: false, asg: null, prog: [], day: [], busy: false };
 
 /* ---------- 소리 ---------- */
@@ -51,7 +61,7 @@ async function ivLoad(force) {
     if (a.error) throw a.error;
     IV.asg = a.data || null;
     const p = await sb.from('iv_progress').select('verb_no,box,due_on,ok,bad,last_at').eq('student_id', me);
-    IV.prog = p.error ? [] : (p.data || []);
+    IV.prog = p.error ? [] : (p.data || []).filter(x => IV_BY.has(x.verb_no));
     const d = await sb.from('iv_day').select('*').eq('student_id', me).order('day', { ascending: false }).limit(30);
     IV.day = d.error ? [] : (d.data || []);
     IV.ok = true;
@@ -59,7 +69,7 @@ async function ivLoad(force) {
   IV.loaded = true; return IV.ok;
 }
 const ivCfg = () => { const s = (IV.asg && IV.asg.settings) || {}; return { per_day: (IV.asg && IV.asg.per_day) || 5, hint: s.hint !== false, review_cap: s.review_cap || 15, rate: s.rate || 0.85 }; };
-const ivStages = () => ((IV.asg && IV.asg.stages) || []).slice().sort((a, b) => a - b);
+const ivStages = () => ((IV.asg && IV.asg.stages) || []).filter(n => IV_STAGES.includes(n)).sort((a, b) => a - b);
 const ivDay = () => IV.day.find(d => d.day === ivToday()) || { new_n: 0, rev_n: 0, ok: 0, total: 0, sec: 0 };
 const ivLearned = () => new Set(IV.prog.map(p => p.verb_no));
 const ivDue = () => { const t = ivToday(); return IV.prog.filter(p => p.due_on <= t).sort((a, b) => a.due_on.localeCompare(b.due_on)); };
@@ -140,7 +150,7 @@ async function ivHome() {
   await ivLoad(true);
   const cfg = ivCfg(), left = ivNewLeft(), pool = ivNewPool(), due = ivDue(), nNew = Math.min(left, pool.length), day = ivDay();
   const learned = ivLearned(), st = ivStages();
-  const stageChips = st.map(s => { const vs = ivStageVerbs(s), n = vs.filter(v => learned.has(v.no)).length; return `<span>${s}단계 <b>${n}/${vs.length}</b></span>`; }).join('');
+  const stageChips = st.map(s => { const vs = ivStageVerbs(s), n = vs.filter(v => learned.has(v.no)).length; return `<span>${ivStageName(s)} <b>${n}/${vs.length}</b></span>`; }).join('');
   const mastered = IV.prog.filter(p => p.box >= 5).length;
   shell(`<p><a href="#" id="back">← 처음으로</a></p><h1>🔁 불규칙동사</h1>
     <div class="card"><h3 style="margin:0 0 8px">오늘의 목표</h3>
@@ -176,7 +186,7 @@ function ivCardHtml(v) {
   const p = IV_PAT[v.pat], fr = ivFriends(v);
   const form = (k, label, ko) => `<div class="ivf" data-k="${k}" data-say="${k}"><small>${label}</small><b>${esc(v[k])}</b><span>${esc(ko)}</span><span>🔊</span></div>`;
   const tags = ['현재형 · 지금·습관', '과거형 · yesterday, last…', 'p.p · have/has + p.p, be + p.p'];
-  return `<div class="card"><div class="row between"><span class="ivpat">${p[0]} ${p[1]}</span><span class="tiny">${v.no}번 · ${ivStageOf(v.no)}단계</span></div>
+  return `<div class="card"><div class="row between"><span class="ivpat">${p[0]} ${p[1]}</span><span class="tiny">${ivStageName(ivStageOf(v.no))}</span></div>
     <div class="ivforms">${form('base', '현재', v.ko)}${form('past', '과거', v.kp)}${form('pp', 'p.p', v.kpp)}</div>
     <div class="row" style="justify-content:center;gap:8px"><button class="btn small" id="ivch">🎵 리듬으로 따라 읽기</button><button class="btn small ghost" id="ivall">🔊 천천히 듣기</button></div>
     ${fr.length ? `<div class="tiny" style="margin-top:10px">같은 소리 친구들</div><div class="ivfr">${fr.map(f => `<span>${esc(f.base)} – ${esc(f.past)} – ${esc(f.pp)}</span>`).join('')}</div>` : ''}
@@ -197,7 +207,7 @@ function ivBrowse(v) {
 
 /* 문장 빈칸 보기: 정답 + 헷갈리는 형태 2개 (예: go → goed) */
 function ivOpts(v, k) {
-  const pool = [v.base, v.past, v.pp, v.reg ? v.base + 's' : v.base + 'ed', v.reg ? v.base.replace(/e$/, '') + 'ing' : v.past + 'ed'];
+  const pool = v.pat === 'SPL' ? [v.base, v.past, v.base + 'ed', v.base + 'd', v.past + 'ed'] : [v.base, v.past, v.pp, v.base + 'ed', v.past + 'ed'];
   const out = [v[k]]; for (const p of pool) if (out.length < 3 && !out.includes(p)) out.push(p);
   return out;
 }

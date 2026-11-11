@@ -96,7 +96,7 @@ progressRows = function (sid) {
   let v = 0, g = (T.asg || []).filter(a => a.student_id === sid).length, p = 0;
   try { v = stuVocabInfo(sid).length; p = stuPassInfo(sid).length; } catch (e) { /* 정보가 없어도 카드는 보여요 */ }
   const chip = (ic, n, un) => `<span class="sgchip ${n ? '' : 'zero'}">${ic} ${n}${un}</span>`;
-  const ia = (STU.ivA || []).find(x => x.student_id === sid), iN = ia ? (ia.stages || []).length : 0;
+  const ia = (STU.ivA || []).find(x => x.student_id === sid), iN = ia ? (ia.stages || []).filter(n => IV_STAGES.includes(n)).length : 0;
   return `<div class="sgline">${chip('📘 어휘', v, '권')}${chip('📗 문법', g, '단원')}${chip('📖 본문', p, '개')}${chip('🔁 불규칙', iN, '단계')}</div><i data-sid="${sid}" hidden></i>`;
 };
 const _tabToday = tabToday;
@@ -200,14 +200,14 @@ function stuView(sid) {
       <div class="spills">${x.done.map(g => `<span class="spill done">✓ ${esc(P_STEP_NAME[g.step] || g.step)} <small>${g.total ? g.score + '/' + g.total : ''}</small></span>`).join('') || '<span class="tiny">아직 시작 전이에요</span>'}</div></div>`).join('') || '<div class="card muted">배정된 본문이 없어요.</div>';
 
   /* 불규칙동사 */
-  const ivA = (STU.ivA || []).find(x => x.student_id === sid), ivP = (STU.ivP || []).filter(x => x.student_id === sid), ivD = (STU.ivD || []).filter(x => x.student_id === sid);
+  const ivA = (STU.ivA || []).find(x => x.student_id === sid), ivP = (STU.ivP || []).filter(x => x.student_id === sid && IV_BY.has(x.verb_no)), ivD = (STU.ivD || []).filter(x => x.student_id === sid);
   const ivTodayD = ivD.find(x => x.day === kst) || { new_n: 0, rev_n: 0, ok: 0, total: 0, sec: 0 };
   let ivHtml = '<div class="card muted">아직 배정하지 않았어요. 「+ 불규칙동사 배정」으로 단계와 하루 개수를 정해 주세요.</div>';
   if (ivA) {
     const have = new Set(ivP.map(x => x.verb_no)), dueN = ivP.filter(x => x.due_on <= kst).length, mst = ivP.filter(x => x.box >= 5).length;
-    const stg = (ivA.stages || []).slice().sort((x, y) => x - y);
+    const stg = (ivA.stages || []).filter(n => IV_STAGES.includes(n)).sort((x, y) => x - y);
     const pills = stg.map(n => { const vs = ivStageVerbs(n), c = vs.filter(v => have.has(v.no)).length, full = c === vs.length;
-      return `<span class="spill ${full ? 'done' : c ? 'now' : ''}">${full ? '✓' : c ? '▶' : '·'} ${n}단계 <small>${c}/${vs.length}</small></span>`; }).join('');
+      return `<span class="spill ${full ? 'done' : c ? 'now' : ''}">${full ? '✓' : c ? '▶' : '·'} ${ivStageName(n)} <small>${c}/${vs.length}</small></span>`; }).join('');
     const days7 = new Set(ivD.filter(x => x.day >= addDays(kst, -6) && (x.new_n || x.rev_n)).map(x => x.day)).size;
     const lastV = ivP.slice().sort((x, y) => String(y.last_at).localeCompare(String(x.last_at))).slice(0, 8).map(x => { const v = IV_BY.get(x.verb_no); return v ? `<span class="spill ${x.bad > x.ok ? 'bad' : ''}" title="맞힘 ${x.ok} · 틀림 ${x.bad}">${esc(v.base)} <small>${x.ok}/${x.ok + x.bad}</small></span>` : ''; }).join('');
     ivHtml = `<div class="card stu-a"><div class="row between" style="flex-wrap:wrap;gap:6px"><div><h3>하루 ${ivA.per_day}개 · ${stg.length}개 단계 배정</h3><span class="tiny">외운 동사 ${have.size}개 · 완전 암기 ${mst}개 · 밀린 복습 ${dueN}개 · 최근 7일 ${days7}일 학습</span></div>
@@ -434,12 +434,15 @@ function stuDaySteps(sid, aid) {
 /* ---------- 불규칙동사 배정 (단계·하루 개수·옵션) ---------- */
 function stuIvSet(sid) {
   const s = T.sById[sid], old = (STU.ivA || []).find(x => x.student_id === sid);
-  let sel = new Set(old ? old.stages : [1]);
+  let sel = new Set(old ? old.stages.filter(n => IV_STAGES.includes(n)) : [1]);
   const cfg = (old && old.settings) || {};
   const m = modal(`<h2>${esc(s.name)} · 불규칙동사 배정</h2>
     <label>배울 단계 <span class="tiny">여러 단계를 골라도 돼요 · 번호가 낮은 단계부터 차례로 나와요</span></label>
-    <div class="row" style="gap:6px;flex-wrap:wrap;margin:6px 0"><button type="button" class="btn small ghost" data-q="1-3">1~3단계</button><button type="button" class="btn small ghost" data-q="1-5">1~5단계 (핵심)</button><button type="button" class="btn small ghost" data-q="6-8">6~8단계 (확장)</button><button type="button" class="btn small ghost" data-q="9-15">9~15단계 (규칙)</button><button type="button" class="btn small ghost" data-q="0">모두 해제</button></div>
-    <div class="uchips" id="ivst">${Array.from({ length: IV_STAGE_N }, (_, k) => { const n = k + 1, vs = ivStageVerbs(n); return `<label class="uchip pickable wide" title="${esc(vs.map(v => v.base).join(', '))}"><input type="checkbox" data-st="${n}" ${sel.has(n) ? 'checked' : ''}><span>${n}단계</span><small>${vs[0].no}~${vs[vs.length - 1].no}번</small></label>`; }).join('')}</div>
+    <div class="row" style="gap:6px;flex-wrap:wrap;margin:6px 0"><button type="button" class="btn small ghost" data-q="1-3">1~3단계</button><button type="button" class="btn small ghost" data-q="1-5">1~5단계 (핵심)</button><button type="button" class="btn small ghost" data-q="6-8">6~8단계 (확장)</button><button type="button" class="btn small ghost" data-q="21-99">교과 빈출 전체</button><button type="button" class="btn small ghost" data-q="0">모두 해제</button></div>
+    <div class="tiny" style="margin:4px 0">📗 기본 불규칙동사 (1~77번)</div>
+    <div class="uchips" id="ivst">${IV_STAGE_MAIN.map(n => { const vs = ivStageVerbs(n); return `<label class="uchip pickable wide" title="${esc(vs.map(v => v.base).join(', '))}"><input type="checkbox" data-st="${n}" ${sel.has(n) ? 'checked' : ''}><span>${n}단계</span><small>${vs[0].no}~${vs[vs.length - 1].no}번</small></label>`; }).join('')}</div>
+    <div class="tiny" style="margin:8px 0 4px">⭐ 중·고등 교과 빈출 (혼동 동사 · 추가 불규칙 · 철자가 바뀌는 규칙동사)</div>
+    <div class="uchips">${IV_STAGE_EX.map(n => { const vs = ivStageVerbs(n); return `<label class="uchip pickable wide" title="${esc(vs.map(v => v.base).join(', '))}"><input type="checkbox" data-st="${n}" ${sel.has(n) ? 'checked' : ''}><span>${ivStageName(n)}</span><small>${vs.length}개</small></label>`; }).join('')}</div>
     <div class="tiny" id="ivsum" style="margin:6px 0"></div>
     <div class="setgrid">
       <div><label>하루 새 동사 수</label><input type="number" id="ivpd" min="1" max="30" value="${old ? old.per_day : 5}"><div class="row" style="gap:6px;margin-top:4px"><button type="button" class="btn small ghost" data-pd="3">3</button><button type="button" class="btn small ghost" data-pd="5">5</button><button type="button" class="btn small ghost" data-pd="10">10</button></div><div class="tiny">아이 수준에 맞게 정해요 (처음엔 3~5개 권해요)</div></div>
