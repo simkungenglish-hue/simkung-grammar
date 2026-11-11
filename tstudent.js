@@ -21,6 +21,25 @@ const stuMin = sec => { const m = Math.round((sec || 0) / 60); return m <= 0 ? (
   .sgline{display:flex;flex-wrap:wrap;gap:6px;margin:2px 0}
   .sgchip{font-size:12px;font-weight:700;padding:3px 9px;border-radius:99px;background:#eef2ff;color:#4338ca}
   .sgchip.zero{background:#f1f5f9;color:#94a3b8;font-weight:600}
+  .bkgrp{background:#fff;border:1px solid #e2e8f0;border-radius:16px;margin:0 0 12px;box-shadow:0 1px 3px rgba(15,23,42,.05);overflow:hidden}
+  .bkgrp>summary{list-style:none;cursor:pointer;display:flex;gap:12px;align-items:center;padding:12px 14px;background:linear-gradient(90deg,#f5f3ff,#fff)}
+  .bkgrp>summary::-webkit-details-marker{display:none}
+  .bkgrp>summary::after{content:"▾";margin-left:auto;color:#94a3b8;font-size:18px}
+  .bkgrp:not([open])>summary::after{content:"▸"}
+  .bkg-cv .cvs.big{width:54px;height:74px;margin:0}
+  .bkg-ph{display:flex;width:54px;height:74px;align-items:center;justify-content:center;background:#ecfdf5;border-radius:6px;font-size:26px}
+  .bkg-i{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px}
+  .bkg-i>b{font-size:17px}
+  .bkg-s{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+  .bkg-s em{font-style:normal;font-size:12px;font-weight:700;padding:2px 9px;border-radius:99px}
+  .bkg-s em.f{background:#ecfdf5;color:#047857}.bkg-s em.i{background:#eef2ff;color:#4338ca}.bkg-s em.n{background:#f1f5f9;color:#64748b}
+  .bkg-bar{display:block;height:6px;background:#e2e8f0;border-radius:99px;overflow:hidden}.bkg-bar i{display:block;height:100%;background:#10b981}
+  .bkg-body{padding:6px 12px 10px}
+  .gu{padding:9px 4px;border-top:1px dashed #e2e8f0}.gu:first-child{border-top:0}
+  .gu-h{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:flex-start}
+  .gu-t b{font-size:14.5px}.gu.fin .gu-t b::after{content:" ✓";color:#059669}
+  .gu-b{display:flex;gap:4px}.gu-b .btn.small{padding:3px 9px;font-size:12px}
+  .gu .spills{margin:5px 0 0}
   .stu-a{margin-bottom:10px}
   .stu-a h3{margin:0}
   .spill{display:inline-flex;align-items:center;gap:3px;padding:3px 9px;border-radius:99px;font-size:12px;font-weight:700;background:#f1f5f9;color:#64748b;border:1px solid #e2e8f0}
@@ -181,17 +200,34 @@ function stuView(sid) {
   const asgs = T.asg.filter(a => a.student_id === sid);
   const kindOf = a => { const u = T.uById[a.unit_id]; return bookKind(u && u.school_book || '교재 미정'); };
   const gCard = a => {
-    const u = T.uById[a.unit_id]; if (!u) return '';
+    const u = T.uById[a.unit_id]; if (!u) return null;
     const stg = STAGES.map(([k, n]) => ({ k, n, sm: tStage(a, k) })).filter(x => x.sm.total);
     let curK = null; for (const x of stg) if (!x.sm.finished) { curK = x.k; break; }
     const pills = stg.map(x => { const cls = x.sm.finished ? (x.sm.passed || x.sm.waiting ? 'done' : 'bad') : x.k === curK ? 'now' : '';
       return `<span class="spill ${cls}">${x.sm.finished ? (x.sm.passed || x.sm.waiting ? '✓' : '⚠') : x.k === curK ? '▶' : '·'} ${esc(x.n)} <small>${x.sm.done}/${x.sm.total}${x.sm.pct != null && x.sm.finished ? ' · ' + x.sm.pct + '%' : ''}</small></span>`; }).join('');
     const mine = at.filter(t => t.assignment_id === a.id), last = mine[0];
-    return `<div class="card stu-a"><div class="row between" style="flex-wrap:wrap;gap:6px"><div class="row" style="gap:0;align-items:center">${cvImg(u.school_book, 'big')}<div><h3>${esc(unitLabel(u))}${roundBadge(a)}</h3><span class="tiny">${a.due_date ? '마감 ' + esc(a.due_date) + ' · ' : ''}${stageLabel(a)} · 풀이 ${mine.length}번 · 시간 ${timeSum(mine).n ? fmtDur(timeSum(mine).sec) : '-'}${last ? ' · 마지막 ' + fmtDT(last.submitted_at) : ''}</span></div></div>
-      <div class="row" style="gap:6px;flex-wrap:wrap"><button class="btn small ghost" data-gstg="${a.id}">단계 바꾸기</button><button class="btn small ghost" data-grl="${a.id}">다시 학습</button><button class="btn small ghost" data-ged="${a.id}">수정</button><button class="btn small ghost" data-gdel="${a.id}" style="color:#dc2626">삭제</button></div></div>
-      <div class="spills">${pills || '<span class="tiny">공개된 문제가 아직 없어요</span>'}</div></div>`; };
-  const gGen = asgs.filter(a => kindOf(a) !== 'naesin').map(gCard).join('');
-  const gNae = asgs.filter(a => kindOf(a) === 'naesin').map(gCard).join('');
+    const fin = stg.length && stg.every(x => x.sm.finished), started = stg.some(x => x.sm.done > 0);
+    const pcts = stg.filter(x => x.sm.finished && x.sm.pct != null).map(x => x.sm.pct);
+    const html = `<div class="gu ${fin ? 'fin' : started ? 'ing' : ''}"><div class="gu-h"><div class="gu-t"><b>${u.lesson ? esc(u.lesson) + ' · ' : ''}${esc(u.title)}</b>${roundBadge(a)}
+        <div class="tiny">${a.due_date ? '마감 ' + esc(a.due_date) + ' · ' : ''}${stageLabel(a)} · 풀이 ${mine.length}번 · ${timeSum(mine).n ? fmtDur(timeSum(mine).sec) : '시간 -'}${last ? ' · 마지막 ' + fmtDT(last.submitted_at) : ''}</div></div>
+        <div class="gu-b"><button class="btn small ghost" data-gstg="${a.id}">단계</button><button class="btn small ghost" data-grl="${a.id}">다시</button><button class="btn small ghost" data-ged="${a.id}">수정</button><button class="btn small ghost" data-gdel="${a.id}" style="color:#dc2626">삭제</button></div></div>
+      <div class="spills">${pills || '<span class="tiny">공개된 문제가 아직 없어요</span>'}</div></div>`;
+    return { a, u, html, fin, started, pcts, n: mine.length, sec: timeSum(mine).sec || 0 };
+  };
+  const gAll = asgs.map(gCard).filter(Boolean);
+  const gGroups = new Map(); gAll.forEach(x => { const b = x.u.school_book || '교재 미정'; if (!gGroups.has(b)) gGroups.set(b, []); gGroups.get(b).push(x); });
+  const gBookHtml = b => {
+    const L = gGroups.get(b).sort((p, q) => unitSort(p.u, q.u)), nf = L.filter(x => x.fin).length, ni = L.filter(x => !x.fin && x.started).length, nn = L.length - nf - ni;
+    const allp = L.flatMap(x => x.pcts), avg = allp.length ? Math.round(allp.reduce((p, q) => p + q, 0) / allp.length) : null;
+    const tot = L.reduce((p, x) => p + x.sec, 0), cnt = L.reduce((p, x) => p + x.n, 0);
+    return `<details class="bkgrp" open><summary><span class="bkg-cv">${cvImg(b, 'big') || '<span class="bkg-ph">📗</span>'}</span>
+      <span class="bkg-i"><b>${esc(b)}</b><span class="bkg-s"><em class="f">✓ 완료 ${nf}</em><em class="i">▶ 진행 ${ni}</em><em class="n">· 시작 전 ${nn}</em><span class="tiny">총 ${L.length}단원${avg != null ? ' · 평균 ' + avg + '%' : ''} · 풀이 ${cnt}번${tot ? ' · ' + fmtDur(tot) : ''}</span></span>
+      <span class="bkg-bar"><i style="width:${Math.round(nf / L.length * 100)}%"></i></span></span></summary>
+      <div class="bkg-body">${L.map(x => x.html).join('')}</div></details>`;
+  };
+  const gBooks = md => [...gGroups.keys()].filter(b => (md === 'naesin') === (bookKind(b) === 'naesin')).sort((x, y) => bookRank(x) - bookRank(y) || x.localeCompare(y, 'ko'));
+  const gGen = gBooks('general').map(gBookHtml).join('');
+  const gNae = gBooks('naesin').map(gBookHtml).join('');
 
   /* 내신 본문 */
   const pInfo = stuPassInfo(sid);
