@@ -256,7 +256,7 @@ async function studentStart() {
 }
 /* 교재 표지 작은 그림 (선생님: T.covers, 학생: CVR) */
 function cvImg(b, cls) {
-  const c = ((window.T && T.covers) || {})[b] || (window.CVR || {})[b];
+  const c = ((typeof T !== 'undefined' && T && T.covers) || {})[b] || (window.CVR || {})[b];
   return c ? `<img class="cvs ${cls || ''}" alt="" src="${esc(c)}">` : '';
 }
 function asgCard(a) {
