@@ -129,20 +129,23 @@ function ivHomeCardHtml() {
   const msg = [nNew ? `새 동사 <b>${nNew}개</b>` : (pool ? '오늘 새 동사는 끝!' : '배정된 동사를 모두 배웠어요 🎉'), due ? `복습 <b style="color:#dc2626">${due}개</b>` : ''].filter(Boolean).join(' · ');
   return `<div class="card ivhome" id="ivgo" role="button" tabindex="0"><div style="display:flex;align-items:center"><span class="ic">🔁</span><div><h2 style="margin:0">불규칙동사</h2><div class="muted">${msg}</div></div></div><button class="btn">${nNew || due ? '시작' : '열기'}</button></div>`;
 }
-(function wrapHome() {
-  if (typeof studentHome !== 'function') return;
+/* 홈 화면 함수는 student2.js가 나중에 다시 정의하므로, 모든 스크립트가 로드된 뒤에 감싸요 */
+function ivInjectCard() {
+  ivLoad().then(() => {
+    if (document.getElementById('ivgo')) return;
+    const h = ivHomeCardHtml(); if (!h) return;
+    const anchor = document.querySelector('.s2-hero') || document.querySelector('h1'); if (!anchor) return;
+    anchor.insertAdjacentHTML('afterend', h);
+    const go = document.getElementById('ivgo'); if (go) go.onclick = () => ivHome();
+  });
+}
+function ivWrapHome() {
+  if (typeof studentHome !== 'function' || studentHome.__iv) return;
   const _sh = studentHome;
-  studentHome = function () {
-    _sh.apply(this, arguments);
-    ivLoad().then(() => {
-      if (document.getElementById('ivgo')) return;
-      const h = ivHomeCardHtml(); if (!h) return;
-      const h1 = document.querySelector('h1'); if (!h1) return;
-      h1.insertAdjacentHTML('afterend', h);
-      const go = document.getElementById('ivgo'); if (go) go.onclick = () => ivHome();
-    });
-  };
-})();
+  studentHome = function () { _sh.apply(this, arguments); ivInjectCard(); };
+  studentHome.__iv = true;
+}
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ivWrapHome); else ivWrapHome();
 
 /* ---------- 불규칙동사 홈 ---------- */
 async function ivHome() {
