@@ -4,7 +4,7 @@
    (따로 있던 「과제 배정」 탭은 이 화면으로 합쳤어요. 저장 구조는 그대로예요.) */
 'use strict';
 
-const STU = { loaded: false, loading: false, vprog: [], pprog: [], vtime: [] };
+const STU = { loaded: false, loading: false, vprog: [], pprog: [], vtime: [], ivA: [], ivP: [], ivD: [] };
 const SV_STEP = { look: '보고 듣기', memorize: '외우기', check: '뜻 고르기', write: '철자 쓰기', match: '짝 맞추기', pos: '품사 맞추기', sent: '문장 빈칸', test: '유닛 테스트' };
 const SV_ORDER = ['look', 'memorize', 'check', 'write', 'match', 'pos', 'sent'];
 const stuMin = sec => { const m = Math.round((sec || 0) / 60); return m <= 0 ? (sec > 0 ? '1분 미만' : '-') : m >= 60 ? `${Math.floor(m / 60)}시간 ${m % 60}분` : `${m}분`; };
@@ -48,6 +48,11 @@ async function stuLoad(force) {
   try { STU.vprog = await vFetchAll(() => sb.from('vocab_progress').select('student_id,unit_id,step,score,total,time_sec,done_at').order('student_id').order('unit_id').order('step')); } catch (e) { STU.vprog = []; }
   try { STU.pprog = await vFetchAll(() => sb.from('passage_progress').select('student_id,passage_id,step,score,total,time_sec,done_at').order('student_id').order('passage_id').order('step')); } catch (e) { STU.pprog = []; }
   try { const r = await sb.rpc('vocab_time_overview', { p_days: 30 }); STU.vtime = r.error ? [] : (r.data || []); } catch (e) { STU.vtime = []; }
+  try {
+    const g = await sb.from('iv_assign').select('*'); STU.ivA = g.error ? [] : (g.data || []);
+    STU.ivP = await vFetchAll(() => sb.from('iv_progress').select('student_id,verb_no,box,due_on,ok,bad,last_at').order('student_id').order('verb_no'));
+    const d = await sb.from('iv_day').select('*').gte('day', addDays(kstToday(), -30)); STU.ivD = d.error ? [] : (d.data || []);
+  } catch (e) { STU.ivA = []; STU.ivP = []; STU.ivD = []; }
   STU.loaded = true;
 }
 
@@ -91,7 +96,8 @@ progressRows = function (sid) {
   let v = 0, g = (T.asg || []).filter(a => a.student_id === sid).length, p = 0;
   try { v = stuVocabInfo(sid).length; p = stuPassInfo(sid).length; } catch (e) { /* 정보가 없어도 카드는 보여요 */ }
   const chip = (ic, n, un) => `<span class="sgchip ${n ? '' : 'zero'}">${ic} ${n}${un}</span>`;
-  return `<div class="sgline">${chip('📘 어휘', v, '권')}${chip('📗 문법', g, '단원')}${chip('📖 본문', p, '개')}</div><i data-sid="${sid}" hidden></i>`;
+  const ia = (STU.ivA || []).find(x => x.student_id === sid), iN = ia ? (ia.stages || []).length : 0;
+  return `<div class="sgline">${chip('📘 어휘', v, '권')}${chip('📗 문법', g, '단원')}${chip('📖 본문', p, '개')}${chip('🔁 불규칙', iN, '단계')}</div><i data-sid="${sid}" hidden></i>`;
 };
 const _tabToday = tabToday;
 tabToday = function () {
@@ -193,6 +199,23 @@ function stuView(sid) {
       <div class="row" style="gap:6px;flex-wrap:wrap"><select data-ptr="${x.a.id}">${Object.entries(P_TRACK).map(([k, n]) => `<option value="${k}" ${x.a.track === k ? 'selected' : ''}>${n}</option>`).join('')}</select><button class="btn small ghost" data-prs="${x.a.id}">처음부터</button><button class="btn small ghost" data-pdel="${x.a.id}" style="color:#dc2626">해제</button></div></div>
       <div class="spills">${x.done.map(g => `<span class="spill done">✓ ${esc(P_STEP_NAME[g.step] || g.step)} <small>${g.total ? g.score + '/' + g.total : ''}</small></span>`).join('') || '<span class="tiny">아직 시작 전이에요</span>'}</div></div>`).join('') || '<div class="card muted">배정된 본문이 없어요.</div>';
 
+  /* 불규칙동사 */
+  const ivA = (STU.ivA || []).find(x => x.student_id === sid), ivP = (STU.ivP || []).filter(x => x.student_id === sid), ivD = (STU.ivD || []).filter(x => x.student_id === sid);
+  const ivTodayD = ivD.find(x => x.day === kst) || { new_n: 0, rev_n: 0, ok: 0, total: 0, sec: 0 };
+  let ivHtml = '<div class="card muted">아직 배정하지 않았어요. 「+ 불규칙동사 배정」으로 단계와 하루 개수를 정해 주세요.</div>';
+  if (ivA) {
+    const have = new Set(ivP.map(x => x.verb_no)), dueN = ivP.filter(x => x.due_on <= kst).length, mst = ivP.filter(x => x.box >= 5).length;
+    const stg = (ivA.stages || []).slice().sort((x, y) => x - y);
+    const pills = stg.map(n => { const vs = ivStageVerbs(n), c = vs.filter(v => have.has(v.no)).length, full = c === vs.length;
+      return `<span class="spill ${full ? 'done' : c ? 'now' : ''}">${full ? '✓' : c ? '▶' : '·'} ${n}단계 <small>${c}/${vs.length}</small></span>`; }).join('');
+    const days7 = new Set(ivD.filter(x => x.day >= addDays(kst, -6) && (x.new_n || x.rev_n)).map(x => x.day)).size;
+    const lastV = ivP.slice().sort((x, y) => String(y.last_at).localeCompare(String(x.last_at))).slice(0, 8).map(x => { const v = IV_BY.get(x.verb_no); return v ? `<span class="spill ${x.bad > x.ok ? 'bad' : ''}" title="맞힘 ${x.ok} · 틀림 ${x.bad}">${esc(v.base)} <small>${x.ok}/${x.ok + x.bad}</small></span>` : ''; }).join('');
+    ivHtml = `<div class="card stu-a"><div class="row between" style="flex-wrap:wrap;gap:6px"><div><h3>하루 ${ivA.per_day}개 · ${stg.length}개 단계 배정</h3><span class="tiny">외운 동사 ${have.size}개 · 완전 암기 ${mst}개 · 밀린 복습 ${dueN}개 · 최근 7일 ${days7}일 학습</span></div>
+      <div class="row" style="gap:6px"><button class="btn small ghost" id="ivreset">처음부터</button><button class="btn small ghost" id="ivdel" style="color:#dc2626">배정 해제</button></div></div>
+      <div class="spills">${pills || '<span class="tiny">배정된 단계가 없어요</span>'}</div>
+      <div class="stu-set">오늘 새 ${ivTodayD.new_n}/${ivA.per_day}개 · 복습 ${ivTodayD.rev_n}개 · 정답 ${ivTodayD.ok}/${ivTodayD.total} · 시간 ${ivTodayD.sec ? stuMin(ivTodayD.sec) : '-'}${(ivA.settings && ivA.settings.hint === false) ? ' · 쓰기 힌트 끔' : ''}</div>
+      ${lastV ? `<div class="tiny" style="margin-top:8px">최근 학습 (맞힘/시도)</div><div class="spills">${lastV}</div>` : ''}</div>`;
+  }
   $('#tb').innerHTML = `
     <div class="row between noprint" style="margin-bottom:8px"><button class="btn ghost small" id="stuback">← 전체 학생</button>
       <span class="row" style="gap:6px"><select id="stuswitch">${T.students.map(x => `<option value="${x.id}" ${x.id === sid ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select><button class="btn ghost small" id="sturl">새로고침</button></span></div>
@@ -214,6 +237,8 @@ function stuView(sid) {
 
     <div class="stu-sec"><h2>📖 내신 본문</h2><button class="btn small" id="padd">+ 본문 배정</button></div>${pHtml}
 
+    <div class="stu-sec"><h2>🔁 불규칙동사</h2><button class="btn small" id="ivset">${ivA ? '⚙ 단계·개수 수정' : '+ 불규칙동사 배정'}</button></div>${ivHtml}
+
     <div class="stu-sec"><h2>⏱ 학습 시간 (최근 14일)</h2></div>
     <div class="card tbars"><div class="tiny" style="margin-bottom:6px"><span class="spill" style="background:#eef2ff;color:#4338ca">■ 어휘</span> <span class="spill" style="background:#fffbeb;color:#b45309">■ 문법</span> · 학생이 화면을 보며 푼 시간이에요(3분 이상 가만히 있으면 뺐어요)</div>${timeHtml}</div>
     <div class="row noprint" style="margin-top:12px;gap:8px;flex-wrap:wrap"><button class="btn ghost" id="stureport">이 학생 리포트·오답노트 보기</button></div>`;
@@ -228,6 +253,18 @@ function stuBind(sid) {
   $('#stuswitch').onchange = e => stuOpen(e.target.value);
   $('#stureport').onclick = () => { T.stuSid = null; T.tab = 'students'; T.view = sid; drawTeacher(); };
   $('#vadd').onclick = () => stuVAssign(sid);
+  $('#ivset').onclick = () => stuIvSet(sid);
+  if ($('#ivreset')) $('#ivreset').onclick = async () => {
+    if (!confirm('이 학생의 불규칙동사 학습 기록을 모두 지우고 처음부터 다시 시작할까요?')) return;
+    const { error } = await S.sb.from('iv_progress').delete().eq('student_id', sid); if (error) return toast(errText(error), 4000);
+    await S.sb.from('iv_day').delete().eq('student_id', sid);
+    STU.ivP = STU.ivP.filter(x => x.student_id !== sid); STU.ivD = STU.ivD.filter(x => x.student_id !== sid); toast('처음부터 다시 시작해요'); stuView(sid);
+  };
+  if ($('#ivdel')) $('#ivdel').onclick = async () => {
+    if (!confirm('불규칙동사 배정을 해제할까요? (학습 기록은 남아요)')) return;
+    const { error } = await S.sb.from('iv_assign').delete().eq('student_id', sid); if (error) return toast(errText(error), 4000);
+    STU.ivA = STU.ivA.filter(x => x.student_id !== sid); toast('해제했어요'); stuView(sid);
+  };
   $('#gadd').onclick = () => stuGAssign(sid);
   $('#padd').onclick = () => stuPAssign(sid);
   /* 어휘 */
@@ -391,5 +428,37 @@ function stuDaySteps(sid, aid) {
     const { error } = await S.sb.from('vocab_assignments').update({ settings }).eq('id', a.id);
     if (error) return toast(errText(error), 4000);
     a.settings = settings; m.remove(); toast('저장했어요'); stuView(sid);
+  };
+}
+
+/* ---------- 불규칙동사 배정 (단계·하루 개수·옵션) ---------- */
+function stuIvSet(sid) {
+  const s = T.sById[sid], old = (STU.ivA || []).find(x => x.student_id === sid);
+  let sel = new Set(old ? old.stages : [1]);
+  const cfg = (old && old.settings) || {};
+  const m = modal(`<h2>${esc(s.name)} · 불규칙동사 배정</h2>
+    <label>배울 단계 <span class="tiny">여러 단계를 골라도 돼요 · 번호가 낮은 단계부터 차례로 나와요</span></label>
+    <div class="row" style="gap:6px;flex-wrap:wrap;margin:6px 0"><button type="button" class="btn small ghost" data-q="1-3">1~3단계</button><button type="button" class="btn small ghost" data-q="1-5">1~5단계 (핵심)</button><button type="button" class="btn small ghost" data-q="6-8">6~8단계 (확장)</button><button type="button" class="btn small ghost" data-q="9-15">9~15단계 (규칙)</button><button type="button" class="btn small ghost" data-q="0">모두 해제</button></div>
+    <div class="uchips" id="ivst">${Array.from({ length: IV_STAGE_N }, (_, k) => { const n = k + 1, vs = ivStageVerbs(n); return `<label class="uchip pickable wide" title="${esc(vs.map(v => v.base).join(', '))}"><input type="checkbox" data-st="${n}" ${sel.has(n) ? 'checked' : ''}><span>${n}단계</span><small>${vs[0].no}~${vs[vs.length - 1].no}번</small></label>`; }).join('')}</div>
+    <div class="tiny" id="ivsum" style="margin:6px 0"></div>
+    <div class="setgrid">
+      <div><label>하루 새 동사 수</label><input type="number" id="ivpd" min="1" max="30" value="${old ? old.per_day : 5}"><div class="row" style="gap:6px;margin-top:4px"><button type="button" class="btn small ghost" data-pd="3">3</button><button type="button" class="btn small ghost" data-pd="5">5</button><button type="button" class="btn small ghost" data-pd="10">10</button></div><div class="tiny">아이 수준에 맞게 정해요 (처음엔 3~5개 권해요)</div></div>
+      <div><label>한 번에 복습할 최대 개수</label><input type="number" id="ivrc" min="5" max="50" value="${cfg.review_cap || 15}"></div>
+      <div><label class="pick"><input type="checkbox" id="ivhint" ${cfg.hint === false ? '' : 'checked'}> 쓰기 연습에 첫 글자 힌트 보이기</label></div>
+      <div><label>발음 속도</label><select id="ivrate"><option value="0.7" ${cfg.rate === 0.7 ? 'selected' : ''}>천천히</option><option value="0.85" ${!cfg.rate || cfg.rate === 0.85 ? 'selected' : ''}>보통</option><option value="1" ${cfg.rate === 1 ? 'selected' : ''}>빠르게</option></select></div>
+    </div>
+    <div class="row" style="margin-top:12px"><button class="btn" id="sv">저장</button><button class="btn ghost" id="cx">취소</button></div>`);
+  const sum = () => { sel = new Set([...m.querySelectorAll('[data-st]:checked')].map(i => +i.dataset.st)); const n = [...sel].reduce((t, k) => t + ivStageVerbs(k).length, 0), pd = +m.querySelector('#ivpd').value || 5; m.querySelector('#ivsum').textContent = sel.size ? `선택한 ${sel.size}개 단계 · 동사 ${n}개 · 하루 ${pd}개면 약 ${Math.ceil(n / pd)}일 걸려요` : '단계를 하나 이상 골라 주세요'; };
+  m.querySelectorAll('[data-st]').forEach(i => i.onchange = sum); m.querySelector('#ivpd').oninput = sum;
+  m.querySelectorAll('[data-q]').forEach(b => b.onclick = () => { const [a, z] = b.dataset.q.split('-').map(Number); m.querySelectorAll('[data-st]').forEach(i => { i.checked = !!a && +i.dataset.st >= a && +i.dataset.st <= z; }); sum(); });
+  m.querySelectorAll('[data-pd]').forEach(b => b.onclick = () => { m.querySelector('#ivpd').value = b.dataset.pd; sum(); });
+  m.querySelector('#cx').onclick = () => m.remove(); sum();
+  m.querySelector('#sv').onclick = async () => {
+    sum(); if (!sel.size) return toast('단계를 하나 이상 골라 주세요');
+    const row = { student_id: sid, stages: [...sel].sort((a, b) => a - b), per_day: Math.max(1, Math.min(30, +m.querySelector('#ivpd').value || 5)),
+      settings: { hint: m.querySelector('#ivhint').checked, review_cap: Math.max(5, Math.min(50, +m.querySelector('#ivrc').value || 15)), rate: +m.querySelector('#ivrate').value }, updated_at: new Date().toISOString() };
+    const { error } = await S.sb.from('iv_assign').upsert([row], { onConflict: 'student_id' });
+    if (error) return toast(errText(error), 4000);
+    STU.ivA = (STU.ivA || []).filter(x => x.student_id !== sid).concat([row]); m.remove(); toast('저장했어요'); stuView(sid);
   };
 }
