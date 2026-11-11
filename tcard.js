@@ -54,7 +54,7 @@ function tcCmp(a, b) {
     return head + rows.map(r => {
       if (!r.a) return r.h;
       const u = T.uById[r.a.unit_id] || {}, k = tcBook(u);
-      let h = r.h.replace('<div class="phl"><b>', `<div class="phl"><b><span class="bk ${k[0]}">${esc(k[1])}</span>`);
+      let h = r.h.replace('<div class="phl"><b>', `<div class="phl"><b>${cvImg(u.school_book)}<span class="bk ${k[0]}">${esc(k[1])}</span>`);
       const due = r.a.due_date ? `<span class="tiny muted" style="margin-right:auto">마감 ${esc(r.a.due_date)}</span>` : '';
       const act = `<div class="pact">${due}<button data-aedit="${r.a.id}">✏️ 배정 수정</button><button class="del" data-adel="${r.a.id}">🗑 삭제</button></div>`;
       const end = h.lastIndexOf('</div>');

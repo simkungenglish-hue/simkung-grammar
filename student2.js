@@ -145,11 +145,11 @@ function studentHome() {
     <div class="s2-chips"><span class="s2-chip">Lv.${stt.lv}</span><span class="s2-chip">🔥 ${stt.streak}일 연속</span><span class="s2-chip">⭐ ${stt.xp.toLocaleString()} XP</span>${stt.acc != null ? `<span class="s2-chip">🎯 정답률 ${stt.acc}%</span>` : ''}</div>
     <div class="s2-lv"><div class="t"><span>Lv.${stt.lv}</span><span>다음 레벨까지 ${stt.per - stt.into} XP</span></div><div class="bar"><i style="width:${Math.round(stt.into / stt.per * 100)}%"></i></div></div></div>`;
   const nowCard = now ? `<div class="s2-now"><div class="lbl">▶ 지금 할 일 · ${now.steps.indexOf(now.cur) + 1}/${now.steps.length}단계</div>
-      <h2>${esc(now.a.units.title)}</h2><div class="meta">${esc(now.a.units.school_book || '')} ${esc(now.a.units.lesson || '')} · ${esc(now.cur.label)}</div>
+      <h2>${esc(now.a.units.title)}</h2><div class="meta">${cvImg(now.a.units.school_book, 'big')}${esc(now.a.units.school_book || '')} ${esc(now.a.units.lesson || '')} · ${esc(now.cur.label)}</div>
       <div class="s2-steps">${now.steps.map(s => `<span class="${s.done ? 'done' : s === now.cur ? 'cur' : ''}">${s.done ? '✓ ' : ''}${esc(s.name)}</span>`).join('')}</div>
       <button class="btn go" id="s2go">${now.cur.k === 'video' ? '🎬 영상부터 보기' : now.cur.k === 'concept' ? '📘 개념 읽기' : '✏️ 문제 풀기'}</button></div>`
     : `<div class="s2-now"><div class="lbl">🎉 미션 완료</div><h2>지금 배정된 공부를 모두 끝냈어요!</h2><div class="meta">틀린 문제를 한 번 더 보거나, 영상 강의실에서 복습해 보세요.</div></div>`;
-  const mCard = m => `<div class="s2-m" data-mu="${m.a.id}"><div class="top"><div><b>${esc(m.a.units.title)}</b><div class="book">${esc(m.a.units.school_book || '')} ${esc(m.a.units.lesson || '')}${(m.a.current_round || 1) > 1 ? ' · ' + m.a.current_round + '회차' : ''}</div></div>${s2Due(m.a)}</div>
+  const mCard = m => `<div class="s2-m" data-mu="${m.a.id}"><div class="top"><div><b>${esc(m.a.units.title)}</b><div class="book">${cvImg(m.a.units.school_book)}${esc(m.a.units.school_book || '')} ${esc(m.a.units.lesson || '')}${(m.a.current_round || 1) > 1 ? ' · ' + m.a.current_round + '회차' : ''}</div></div>${s2Due(m.a)}</div>
     <div class="s2-steps">${m.steps.map(s => `<span class="${s.done ? 'done' : s === m.cur ? 'cur' : ''}">${s.done ? '✓ ' : ''}${esc(s.name)}</span>`).join('')}</div>
     <div class="s2-pbar"><i style="width:${m.pct}%"></i></div></div>`;
   const wn = s2WrongCount();

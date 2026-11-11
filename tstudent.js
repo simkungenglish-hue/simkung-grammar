@@ -352,7 +352,7 @@ function stuGAssign(sid) {
   const booksOf = md => [...bk.keys()].filter(b => bookKind(b) === md).sort((x, y) => bookRank(x) - bookRank(y) || x.localeCompare(y, 'ko'));
   const m = modal(`<h2>${esc(s.name)} · 문법 단원 배정</h2>
     <div class="modebar"><button type="button" class="mbtn on" data-gm="general">📘 일반 교재</button><button type="button" class="mbtn" data-gm="naesin">🏫 내신 대비</button></div>
-    <label style="margin-top:8px">교재</label><select id="gbk"></select>
+    <label style="margin-top:8px">교재</label><div class="row" style="gap:10px;align-items:center"><span id="gcv"></span><select id="gbk" style="flex:1"></select></div>
     <label style="margin-top:8px">단원 <span class="tiny">(여러 개 고를 수 있어요 · 이미 배정된 단원은 회색)</span></label><div class="picks col" id="gun" style="max-height:260px;overflow:auto"></div>
     <div class="setgrid" style="margin-top:8px"><div><label>마감일 (선택)</label><input type="date" id="gd"></div><div><label>단계별 문항 수</label><input type="number" id="gp" min="1" max="20" value="5"></div>
       <div><label>통과 기준 (%)</label><input type="number" id="gc" min="1" max="100" value="80"></div><div><label>다시 풀기 횟수</label><input type="number" id="gr" min="0" max="10" value="2"></div>
@@ -360,7 +360,8 @@ function stuGAssign(sid) {
     <div style="margin-top:8px"><label>학습할 단계 <span class="tiny">(아이 실력에 맞게 골라요)</span></label>${stagePickHtml('gst', null)}</div>
     <div class="row" style="margin-top:12px"><button class="btn" id="gsv">배정하기</button><button class="btn ghost" id="gcx">취소</button></div>`);
   const drawUnits = () => {
-    const b = m.querySelector('#gbk').value, list = (bk.get(b) || []).slice().sort(unitSort);
+    const b = m.querySelector('#gbk').value; m.querySelector('#gcv').innerHTML = cvImg(b, 'big'); 
+    const _b = b, list = (bk.get(b) || []).slice().sort(unitSort);
     m.querySelector('#gun').innerHTML = list.map(u => { const n = approvedN(u), h = had.has(u.id);
       return `<label class="pick wide ${n ? '' : 'off'}" style="${h ? 'opacity:.5' : ''}"><input type="checkbox" name="gu" value="${u.id}" ${h ? 'disabled' : ''}><span>${u.lesson ? esc(u.lesson) + ' · ' : ''}${esc(u.title)}</span><i class="tiny">${h ? '배정됨' : n ? '공개 ' + n : '공개 0 · 승인 필요'}</i></label>`; }).join('') || '<p class="tiny">이 교재에 단원이 없어요.</p>';
   };

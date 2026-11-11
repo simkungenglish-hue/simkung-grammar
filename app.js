@@ -188,6 +188,7 @@ async function loadStudent() {
   ST.concepts = c.data || []; ST.questions = q.data || [];
   ST.allAttempts = t.data || [];
   try { const dk = await S.sb.from('lesson_decks').select('id,deck_key,unit_id,ord,title,paths').order('ord'); ST.decks = dk.error ? [] : (dk.data || []); } catch (e) { ST.decks = []; }
+  try { const cr = await S.sb.from('book_covers').select('school_book,cover'); window.CVR = Object.fromEntries(((cr && cr.data) || []).map(r => [r.school_book, r.cover])); } catch (e) { window.CVR = {}; }
   try { const uv = await S.sb.from('unit_videos').select('id,unit_id,yt_id,title,len_sec,chapters,ord,school_book,lesson,no,start_sec,serse_sec').order('ord'); ST.videos = uv.error ? [] : (uv.data || []); } catch (e) { ST.videos = []; }
   try { const lv = await S.sb.from('lec_videos').select('id,yt_id'); ST.lecIds = Object.fromEntries(((lv && lv.data) || []).map(x => [x.yt_id, x.id])); } catch (e) { ST.lecIds = {}; }
   ST.attempts = ST.allAttempts.filter(x => (x.round || 1) === (cr[x.assignment_id] || 1));
@@ -253,11 +254,16 @@ async function studentStart() {
   try { await Promise.all([loadStudent(), typeof loadVocab === 'function' ? loadVocab() : null, typeof loadPassage === 'function' ? loadPassage() : null]); } catch (e) { return shell(`<div class="result bad">${esc(errText(e))}</div>`); }
   studentHome();
 }
+/* 교재 표지 작은 그림 (선생님: T.covers, 학생: CVR) */
+function cvImg(b, cls) {
+  const c = ((window.T && T.covers) || {})[b] || (window.CVR || {})[b];
+  return c ? `<img class="cvs ${cls || ''}" alt="" src="${esc(c)}">` : '';
+}
 function asgCard(a) {
   const stages = STAGES.map(([k]) => stageSummary(a, k)).filter(x => x.total);
   const done = stages.reduce((s, x) => s + x.done, 0), tot = stages.reduce((s, x) => s + x.total, 0);
   return `<div class="card"><div class="row between"><div><h2 style="margin:0">${esc(a.units.title)}${(a.current_round || 1) > 1 ? ` <span class="badge">${a.current_round}회차</span>` : ''}</h2>
-    <div class="muted">${esc(a.units.school_book)} ${esc(a.units.lesson)}${a.due_date ? ' · 마감 ' + esc(a.due_date) : ''}</div></div>
+    <div class="muted">${cvImg(a.units.school_book)}${esc(a.units.school_book)} ${esc(a.units.lesson)}${a.due_date ? ' · 마감 ' + esc(a.due_date) : ''}</div></div>
     <button class="btn" data-u="${a.id}">${done ? '이어서 하기' : '시작하기'}</button></div>
     <div class="progress" style="margin-top:10px"><i style="width:${pct(done, tot) || 0}%"></i></div>
     <div class="tiny">${done}/${tot} 문제 완료</div></div>`;
