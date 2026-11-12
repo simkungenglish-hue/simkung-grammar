@@ -116,8 +116,8 @@ function s2Due(a) {
   return d < 0 ? `<span class="s2-due hot">마감 지남</span>` : d === 0 ? `<span class="s2-due hot">오늘 마감</span>` : `<span class="s2-due ${d <= 2 ? 'hot' : ''}">D-${d}</span>`;
 }
 function s2Missions() {
-  return ST.asg.map(a => { const steps = s2Steps(a); const qSteps = steps.filter(s => s.sm); const done = steps.filter(s => s.done).length; const cur = steps.find(s => !s.done); return { a, steps, cur, pct: steps.length ? Math.round(done / steps.length * 100) : 0, qDone: qSteps.filter(s => s.done).length, qTotal: qSteps.length }; })
-    .sort((x, y) => (ST.bootcamp ? s2UnitNo(x) - s2UnitNo(y) : 0) || (!!x.cur === !!y.cur ? 0 : x.cur ? -1 : 1) || String(x.a.due_date || '9999').localeCompare(String(y.a.due_date || '9999')) || (y.pct - x.pct) || String(x.a.created_at).localeCompare(String(y.a.created_at)));
+  return ST.asg.map(a => { const steps = s2Steps(a); const qSteps = steps.filter(s => s.sm); const done = steps.filter(s => s.done).length; const man = ((a.settings || {}).manual_done_round === (a.current_round || 1)); const cur = man ? undefined : steps.find(s => !s.done); return { a, steps, cur, pct: man ? 100 : steps.length ? Math.round(done / steps.length * 100) : 0, qDone: qSteps.filter(s => s.done).length, qTotal: qSteps.length }; })
+    .sort((x, y) => (ST.bootcamp ? s2UnitNo(x) - s2UnitNo(y) : 0) || (!!x.cur === !!y.cur ? 0 : x.cur ? -1 : 1) || String(x.a.due_date || '9999').localeCompare(String(y.a.due_date || '9999')) || (y.pct - x.pct) || ((x.a.units || {}).school_book === (y.a.units || {}).school_book ? String((x.a.units || {}).lesson || '').localeCompare(String((y.a.units || {}).lesson || ''), undefined, { numeric: true }) : 0) || String(x.a.created_at).localeCompare(String(y.a.created_at)));
 }
 function s2WrongCount() {
   let n = 0;

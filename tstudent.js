@@ -229,12 +229,13 @@ function stuView(sid) {
     const pills = stg.map(x => { const cls = x.sm.finished ? (x.sm.passed || x.sm.waiting ? 'done' : 'bad') : x.k === curK ? 'now' : '';
       return `<span class="spill ${cls}">${x.sm.finished ? (x.sm.passed || x.sm.waiting ? '✓' : '⚠') : x.k === curK ? '▶' : '·'} ${esc(x.n)} <small>${x.sm.done}/${x.sm.total}${x.sm.pct != null && x.sm.finished ? ' · ' + x.sm.pct + '%' : ''}</small></span>`; }).join('');
     const mine = at.filter(t => t.assignment_id === a.id), last = mine[0];
-    const fin = stg.length && stg.every(x => x.sm.finished), started = stg.some(x => x.sm.done > 0);
+    const man = ((a.settings || {}).manual_done_round === (a.current_round || 1));
+    const fin = man || (stg.length && stg.every(x => x.sm.finished)), started = man || stg.some(x => x.sm.done > 0);
     const pcts = stg.filter(x => x.sm.finished && x.sm.pct != null).map(x => x.sm.pct);
     const html = `<div class="gu ${fin ? 'fin' : started ? 'ing' : ''}"><div class="gu-h"><div class="gu-t"><b>${u.lesson ? esc(u.lesson) + ' · ' : ''}${esc(u.title)}</b>${roundBadge(a)}
         <div class="tiny">${a.due_date ? '마감 ' + esc(a.due_date) + ' · ' : ''}${stageLabel(a)} · 풀이 ${mine.length}번 · ${timeSum(mine).n ? fmtDur(timeSum(mine).sec) : '시간 -'}${last ? ' · 마지막 ' + fmtDT(last.submitted_at) : ''}</div></div>
-        <div class="gu-b"><button class="btn small ghost" data-gstg="${a.id}">단계</button><button class="btn small ghost" data-grl="${a.id}">다시</button><button class="btn small ghost" data-ged="${a.id}">수정</button><button class="btn small ghost" data-gdel="${a.id}" style="color:#dc2626">삭제</button></div></div>
-      <div class="spills">${pills || '<span class="tiny">공개된 문제가 아직 없어요</span>'}</div></div>`;
+        <div class="gu-b">${man ? `<button class="btn small ghost" data-gdone="${a.id}" data-undo="1" style="color:#b45309">완료 취소</button>` : `<button class="btn small" data-gdone="${a.id}" style="background:#16a34a;border-color:#16a34a;color:#fff">완료</button>`}<button class="btn small ghost" data-gstg="${a.id}">단계</button><button class="btn small ghost" data-grl="${a.id}">다시</button><button class="btn small ghost" data-ged="${a.id}">수정</button><button class="btn small ghost" data-gdel="${a.id}" style="color:#dc2626">삭제</button></div></div>
+      <div class="spills">${man ? `<span class="spill done">✅ 완료 처리 <small>${esc(String((a.settings || {}).manual_done_at || '').slice(0, 10))}</small></span>` : ''}${pills || '<span class="tiny">공개된 문제가 아직 없어요</span>'}</div></div>`;
     return { a, u, html, fin, started, pcts, n: mine.length, sec: timeSum(mine).sec || 0 };
   };
   const gAll = asgsAll.map(gCard).filter(Boolean);
@@ -371,6 +372,18 @@ function stuBind(sid) {
     toast('다시 학습하도록 바꿨어요'); stuView(sid);
   });
   /* 문법 */
+  document.querySelectorAll('[data-gdone]').forEach(b => b.onclick = async () => {
+    const a = T.asg.find(x => x.id === b.dataset.gdone); if (!a) return;
+    const u = T.uById[a.unit_id] || {}, undo = !!b.dataset.undo, settings = Object.assign({}, a.settings || {});
+    if (undo) { delete settings.manual_done_round; delete settings.manual_done_at; }
+    else {
+      if (!confirm(`「${u.lesson || ''} ${u.title || ''}」 단원을 완료 처리할까요?\n(시험 등으로 통과한 경우) 학생 화면에서도 완료로 바뀌고 다음 단원이 '지금 할 일'이 돼요.\n풀이 기록은 그대로 두고, 언제든 완료 취소할 수 있어요.`)) return;
+      settings.manual_done_round = a.current_round || 1; settings.manual_done_at = new Date().toISOString();
+    }
+    const { error } = await S.sb.from('assignments').update({ settings }).eq('id', a.id);
+    if (error) return toast(errText(error), 4000);
+    a.settings = settings; toast(undo ? '완료를 취소했어요' : '완료 처리했어요 · 다음 단원으로 넘어가요'); stuView(a.student_id);
+  });
   document.querySelectorAll('[data-gstg]').forEach(b => b.onclick = () => stageModal(b.dataset.gstg));
   document.querySelectorAll('[data-grl]').forEach(b => b.onclick = () => relearnModal(b.dataset.grl));
   document.querySelectorAll('[data-ged]').forEach(b => b.onclick = () => asgEdit(b.dataset.ged));
