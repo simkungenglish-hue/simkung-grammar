@@ -164,7 +164,8 @@ function studentHome() {
   const badges = `<div class="s2-badges">${B.map(([e, n, on]) => `<div class="s2-badge ${on ? 'on' : ''}"><div class="e">${e}</div>${n}</div>`).join('')}</div>`;
   // 어휘(게임 포함)·내신 본문 카드: 배정된 학생에게만 보여요
   const vcard = typeof vocabHomeCard === 'function' ? vocabHomeCard() : '', pcard = typeof passageHomeCard === 'function' ? passageHomeCard() : '';
-  const vp = !ST.bootcamp && (vcard || pcard) ? `<div class="s2-sec"><h3>어휘 · 본문</h3></div>${vcard}${pcard}` : '';
+  // 부트캠프 학생도 배정된 어휘는 보여요 (본문 카드는 부트캠프가 아닐 때만)
+  const vbody = vcard + (ST.bootcamp ? '' : pcard), vp = vbody ? `<div class="s2-sec"><h3>${ST.bootcamp ? '어휘' : '어휘 · 본문'}</h3></div>${vbody}` : '';
   shell(`${hero}${nowCard}${vp}
     ${ST.bootcamp
       ? `<div class="s2-sec"><h3>부트캠프 학습</h3><span>${fin.length}/${ms.length} 단원 완료</span></div><div class="s2-ut">${ms.map(m => bcTile(m, now)).join('')}</div>`
