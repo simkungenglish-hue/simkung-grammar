@@ -27,7 +27,7 @@ function vNorm(t) { return String(t || '').toLowerCase().replace(/[’‘]/g, "'
 function vCfg(a) {
   const s = (a && a.settings) || {};
   const bk = a && typeof vBook === 'function' ? vBook(a.book_id) : null, school = !!(bk && bk.kind === 'school');
-  return { pass_pct: s.pass_pct ?? 90, first_letter: !!s.first_letter, units_per_day: s.units_per_day ?? (school ? 0 : 1), review_cap: s.review_cap ?? 40, speak: s.speak !== false,
+  return { pass_pct: s.pass_pct ?? 90, first_letter: !!s.first_letter, hint_btn: !!s.hint_btn, units_per_day: s.units_per_day ?? (school ? 0 : 1), review_cap: s.review_cap ?? 40, speak: s.speak !== false,
     prev_review: s.prev_review !== false, prev_n: s.prev_n ?? 10,
     steps: Array.isArray(s.steps) && s.steps.length ? s.steps : null,
     unit_steps: s.unit_steps && typeof s.unit_steps === 'object' ? s.unit_steps : null,   // 유닛(Day)마다 따로 고른 단계 {유닛번호: [단계…]} — 있으면 이 유닛은 그 단계만   // 원장님이 학생·교재별로 고른 학습 단계 (없으면 기본 5단계 + 테스트)
@@ -195,8 +195,10 @@ function vStepsOf(a, unitId) {
 function vStepList(a, unitId) {
   const steps = vStepsOf(a, unitId), test = V_STEPS.find(s => s[0] === 'test');
   if (!steps) return V_STEPS.slice();
-  const core = V_STEPS.filter(s => s[0] !== 'test' && steps.includes(s[0])), ext = V_EXTRA.filter(s => steps.includes(s[0]));
-  return [...core, ...ext, test];
+  // 저장된 순서를 따라가요 (속성 15분 코스는 품사 → 철자 쓰기 순서). 순서를 따로 안 바꾼 기존 설정은 예전과 똑같아요.
+  const all = [...V_STEPS, ...V_EXTRA], seen = new Set(), list = [];
+  steps.forEach(k => { const st = k !== 'test' && !seen.has(k) && all.find(s => s[0] === k); if (st) { seen.add(k); list.push(st); } });
+  return [...list, test];
 }
 const vFirstStep = unitId => { const a = vAsgOfUnit(unitId); return vStepList(a, unitId)[0][0]; };
 const vPrevNeeded = unitId => !!vPrevUnit(unitId) && !vProg(unitId, 'prev') && !VS.prog.some(x => x.unit_id === unitId && x.step !== 'prev');
@@ -474,15 +476,16 @@ function vQuiz(opt) {
         return `<button class="choice ${cls}" data-c="${esc(c)}" ${Q.out ? 'disabled' : ''}>${esc(c)}</button>`;
       }).join('');
     } else {
-      const hint = opt.hint ? `<div class="vmask">${esc(vHintMask(it.word))}</div>` : '';
-      body += `${hint}<input type="text" id="ans" class="vin" placeholder="${Q.retype ? '정답을 따라 써 보세요' : '영어로 입력'}" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" ${Q.out && !Q.retype ? 'disabled' : ''}>`;
+      const hint = opt.hint || x.hinted ? `<div class="vmask">${esc(vHintMask(it.word))}</div>` : '';
+      const hintBtn = opt.hintBtn && !opt.hint && !x.hinted && !Q.out && !rvMode ? '<button class="btn ghost small" id="hintb" type="button" style="margin:4px 0 8px">💡 힌트 보기</button>' : '';
+      body += `${hint}${hintBtn}<input type="text" id="ans" class="vin" placeholder="${Q.retype ? '정답을 따라 써 보세요' : '영어로 입력'}" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" ${Q.out && !Q.retype ? 'disabled' : ''}>`;
     }
     if (Q.out) {
       const right = x.dir === 'ko' ? it.meaning : it.word;
-      body += Q.out.is_correct ? `<div class="result ok"><b>정답! 👏</b> ${esc(it.word)} = ${esc(it.meaning)}</div>`
+      body += Q.out.is_correct ? `<div class="result ok"><b>정답! 👏</b> ${esc(it.word)} = ${esc(it.meaning)}${x.hinted && opt.hintBtn ? '<div class="tiny">💡 힌트를 봤어요 → 이어서 힌트 없이 한 번 더 해 봐요</div>' : ''}</div>`
         : `<div class="result bad"><b>정답: ${esc(right)}</b>${x.dir === 'en' ? ` ${vSpk(it.word)}` : ''}${x.mode === 'type' && x.dir === 'en' && typeof gDiff === 'function' ? gDiff(Q.sel, it.word) + (it.spell_note ? `<div class="tiny">✏️ ${esc(it.spell_note)}</div>` : '') : ''}${it.phrase ? `<div class="tiny">기억 표현: ${esc(it.phrase)} (${esc(it.phrase_ko)})</div>` : ''}${Q.retype ? '<div class="tiny">아래 칸에 정답을 한 번 따라 써 보세요.</div>' : ''}</div>`;
     }
-    const willAgain = Q.out && !Q.out.is_correct && opt.requeue && !x.again;
+    const willAgain = (Q.out && !Q.out.is_correct && opt.requeue && !x.again) || (Q.out && Q.out.is_correct && x.hinted && opt.hintBtn);
     const canBack = !rvMode ? (Q.i > 0 && !!Q.log[Q.i - 1] && !Q.retype) : (Q.i - 1 >= Math.max(0, front - 2) && !!Q.log[Q.i - 1]);
     const backBtn = canBack ? `<button class="btn ghost small" id="pvq" style="margin-top:8px">← 이전 문제${rvMode ? '' : ' 보기'}</button>` : '';
     let btn = Q.out ? (Q.retype ? '' : `<button class="btn" id="nx" style="width:100%">${Q.i < Q.list.length - 1 || willAgain ? '다음' : '마치기'}</button>`)
@@ -500,6 +503,7 @@ function vQuiz(opt) {
       if (Q.retype) inp.oninput = () => { if (vNorm(inp.value) === vNorm(it.word)) retype(inp.value); };
     }
     if ($('#go')) $('#go').onclick = () => submit(inp.value);
+    if ($('#hintb')) $('#hintb').onclick = () => { Q.list[Q.i].hinted = true; draw(); };
     if ($('#nx')) $('#nx').onclick = next;
     const cur = Q.i;       // 다시 보기 중에는 Q.i를 잠깐 바꿔 쓰므로, 지금 보는 번호를 따로 기억해 둬요
     if ($('#rvn')) $('#rvn').onclick = () => { Q.rv = cur + 1 >= front ? null : cur + 1; draw(); };
@@ -517,9 +521,9 @@ function vQuiz(opt) {
       const r = await vSend(x.it, opt.step, x.dir, ans, Q.runId, Q.cid);
       Q.out = r; Q.cid = null; Q.busy = false;
       Q.log[Q.i] = { out: r, sel: ans };
-      if (!Q.res.has(x.it.id)) Q.res.set(x.it.id, { it: x.it, ok: r.is_correct, ans });
+      if (!Q.res.has(x.it.id)) Q.res.set(x.it.id, { it: x.it, ok: r.is_correct && !(x.hinted && opt.hintBtn), ans });
       if (!r.is_correct && x.mode === 'type' && opt.step !== 'test' && opt.step !== 'exam') Q.retype = true;
-      if (r.is_correct || !opt.requeue || x.again) Q.done++;
+      if (!x.hintRound && (r.is_correct || !opt.requeue || x.again)) Q.done++;
       draw();
       // 보기 고르기는 다음 버튼 없이 자동으로 넘어가요 (맞으면 빨리, 틀리면 정답을 볼 시간을 조금 더)
       if (x.mode === 'choice') {
@@ -531,7 +535,9 @@ function vQuiz(opt) {
   const retype = v => { const x = Q.list[Q.i]; if (vNorm(v) === vNorm(x.it.word)) { Q.retype = false; toast(x.again ? '좋아요! 이제 기억해요' : '좋아요! 다음에 한 번 더 나와요'); next(); } else toast('정답과 똑같이 써 보세요'); };
   const next = () => {
     const x = Q.list[Q.i];
-    if (Q.out && !Q.out.is_correct && opt.requeue && !x.again) Q.list.push({ ...x, again: true, ch: null });
+    if (Q.out && !Q.out.is_correct && opt.requeue && !x.again) Q.list.push({ ...x, again: true, ch: null, hinted: false });
+    // 힌트를 보고 맞힌 단어는 바로 이어서, 힌트 없이 맞힐 때까지 다시 나와요
+    if (Q.out && Q.out.is_correct && x.hinted && opt.hintBtn) Q.list.splice(Q.i + 1, 0, { ...x, hinted: false, ch: null, hintRound: true });
     Q.rv = null; Q.i++; Q.out = null; Q.sel = null; Q.retype = false; draw();
   };
   draw();
@@ -550,7 +556,7 @@ function vWrite(unitId, items, prepped) {
   if (!prepped && typeof gSpellPrep === 'function' && GS.ok) return gSpellPrep(unitId, items, () => vWrite(unitId, items, true));
   const a = vAsgOfUnit(unitId);
   const list = shuffle(items).map(it => ({ it, dir: 'en', mode: 'type' }));
-  vQuiz({ unitId, step: 'write', list, items, requeue: true, hint: vCfg(a).first_letter, onEnd: async res => {
+  vQuiz({ unitId, step: 'write', list, items, requeue: true, hint: vCfg(a).first_letter, hintBtn: vCfg(a).hint_btn, onEnd: async res => {
     const ok = [...res.values()].filter(r => r.ok).length;
     if (await vStepDone(unitId, 'write', ok, items.length)) vStepEnd(unitId, 'write', `<p>한 번에 맞힌 철자 <b>${ok}</b> / ${items.length}개</p>`);
   } });

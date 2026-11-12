@@ -256,11 +256,28 @@ function vtAssign() {
   });
 }
 const VT_STEP_OPTS = [['look', '👀 보고 듣기'], ['memorize', '🧠 외우기'], ['check', '✅ 뜻 고르기'], ['write', '✏️ 철자 쓰기'], ['match', '🧩 짝 맞추기'], ['pos', '🏷️ 품사 맞추기'], ['sent', '📝 문장 빈칸']];
-const VT_PRESETS = { basic: ['look', 'memorize', 'check', 'write', 'match'], std: ['look', 'check', 'write', 'match'], adv: ['check', 'write', 'sent'], quick: ['look', 'check', 'write'] };
-// 속성 15분: 단계만이 아니라 설정도 같이 바꿔요 (첫 글자 힌트·앞 복습 5단어·통과 80%)
-const VT_PRESET_SET = { quick: { first_letter: true, prev_review: true, prev_n: 5, pass_pct: 80 } };
+const VT_PRESETS = { basic: ['look', 'memorize', 'check', 'write', 'match'], std: ['look', 'check', 'write', 'match'], adv: ['check', 'write', 'sent'], quick: ['look', 'check', 'pos', 'write'] };
+// 속성 15분: 단계만이 아니라 설정도 같이 바꿔요 (힌트 보기 버튼·앞 복습 5단어·통과 80%). 순서도 프리셋 순서대로 저장돼요
+const VT_PRESET_SET = { quick: { first_letter: false, hint_btn: true, prev_review: true, prev_n: 5, pass_pct: 80 } };
+// 고른 프리셋 순서대로 체크칸을 앞으로 모아요 (저장할 때 이 순서가 그대로 학습 순서가 돼요). 나머지는 기본 순서.
+function vtOrderSteps(root, first) {
+  const box = root.querySelector('#vtsteps'); if (!box) return;
+  const labs = [...box.children].filter(l => l.querySelector('[data-step]')), key = l => l.querySelector('[data-step]').value, canon = VT_STEP_OPTS.map(o => o[0]);
+  labs.sort((x, y) => {
+    const ix = first.indexOf(key(x)), iy = first.indexOf(key(y));
+    if (ix >= 0 || iy >= 0) return (ix < 0 ? 99 : ix) - (iy < 0 ? 99 : iy);
+    return canon.indexOf(key(x)) - canon.indexOf(key(y));
+  }).forEach(l => box.appendChild(l));
+}
 function vtBindSteps(root) {
-  root.querySelectorAll('[data-preset]').forEach(b => b.onclick = () => root.querySelectorAll('[data-step]').forEach(i => { i.checked = VT_PRESETS[b.dataset.preset].includes(i.value); }) || Object.entries(VT_PRESET_SET[b.dataset.preset] || {}).forEach(([k, v]) => { const el = root.querySelector(`[data-k="${k}"]`); if (el) { if (el.type === 'checkbox') el.checked = v; else el.value = v; } }));
+  root.querySelectorAll('[data-preset]').forEach(b => b.onclick = () => {
+    const name = b.dataset.preset;
+    vtOrderSteps(root, VT_PRESETS[name]);
+    root.querySelectorAll('[data-step]').forEach(i => { i.checked = VT_PRESETS[name].includes(i.value); });
+    // 다른 프리셋을 누르면 힌트 버튼은 꺼요 (속성 15분에서만 켜져요)
+    const set = { hint_btn: false, ...(VT_PRESET_SET[name] || {}) };
+    Object.entries(set).forEach(([k, v]) => { const el = root.querySelector(`[data-k="${k}"]`); if (el) { if (el.type === 'checkbox') el.checked = v; else el.value = v; } });
+  });
 }
 function vtSettingsForm(c, start, bk) {
   const school = !!(bk && bk.kind === 'school'), only = Array.isArray(c.only) ? c.only : [], stepsOn = Array.isArray(c.steps) && c.steps.length ? c.steps : ['look', 'memorize', 'check', 'write', 'match'];
@@ -272,19 +289,20 @@ function vtSettingsForm(c, start, bk) {
     <div><label>한 번에 복습할 최대 단어 수</label><input type="number" data-k="review_cap" min="10" max="200" value="${c.review_cap}"></div>
     <div><label>시작 ${school ? '과' : '유닛'} 번호</label><input type="number" data-k="start" min="1" value="${start}"></div>
     <div><label class="pick"><input type="checkbox" data-k="first_letter" ${c.first_letter ? 'checked' : ''}> 철자 쓰기에 첫 글자 힌트</label><div class="tiny">초등 저학년·처음 시작하는 학생에게 권해요</div></div>
+    <div><label class="pick"><input type="checkbox" data-k="hint_btn" ${c.hint_btn ? 'checked' : ''}> 철자 쓰기에 힌트 보기 버튼</label><div class="tiny">힌트를 보고 맞히면, 힌트 없이 맞힐 때까지 바로 이어서 다시 나와요</div></div>
     <div><label class="pick"><input type="checkbox" data-k="speak" ${c.speak ? 'checked' : ''}> 따라 말하기 버튼 보이기</label></div>
     <div><label class="pick"><input type="checkbox" data-k="prev_review" ${c.prev_review !== false ? 'checked' : ''}> 새 ${school ? '과' : '유닛'} 전에 앞 ${school ? '과' : '유닛'} 가볍게 복습</label><div class="tiny">1 학습 → 2 시작 전 1 복습 → 2 학습 → 3 시작 전 2 복습…</div></div>
     <div><label>앞 복습 단어 수</label><input type="number" data-k="prev_n" min="3" max="30" value="${c.prev_n ?? 10}"></div>
     <div style="grid-column:1/-1"><label>학습 단계 고르기 <span class="tiny">학생 수준에 맞게 고르세요. 유닛 테스트는 늘 마지막에 있고, 통과하면 게임이 열려요</span></label>
       <div class="row" style="gap:6px;flex-wrap:wrap;margin:4px 0"><button type="button" class="btn small ghost" data-preset="basic">기초 (천천히)</button><button type="button" class="btn small ghost" data-preset="std">표준</button><button type="button" class="btn small ghost" data-preset="adv">심화 (빠르게)</button><button type="button" class="btn small" data-preset="quick">⚡ 속성 15분 (노베·초저)</button></div>
-      <div class="uchips" id="vtsteps">${VT_STEP_OPTS.map(([k, n]) => `<label class="uchip pickable wide"><input type="checkbox" data-step value="${k}" ${stepsOn.includes(k) ? 'checked' : ''}><span>${n}</span></label>`).join('')}<span class="uchip wide on"><span>🏁 유닛 테스트 (통과 ${c.pass_pct}%)</span></span></div></div>
+      <div class="uchips" id="vtsteps">${[...VT_STEP_OPTS].sort((x, y) => { const ix = stepsOn.indexOf(x[0]), iy = stepsOn.indexOf(y[0]); return ix >= 0 || iy >= 0 ? (ix < 0 ? 99 : ix) - (iy < 0 ? 99 : iy) : 0; }).map(([k, n]) => `<label class="uchip pickable wide"><input type="checkbox" data-step value="${k}" ${stepsOn.includes(k) ? 'checked' : ''}><span>${n}</span></label>`).join('')}<span class="uchip wide on"><span>🏁 유닛 테스트 (통과 ${c.pass_pct}%)</span></span></div></div>
     <div><label class="pick"><input type="checkbox" data-k="sequential" ${c.sequential ? 'checked' : ''}> ${school ? '과' : '유닛'}을 순서대로 열기</label><div class="tiny">${school ? '내신 대비는 꺼 두면 시험 범위 과를 바로 공부해요' : '앞 유닛을 통과해야 다음 유닛이 열려요'}</div></div></div>`;
 }
 function vtReadSettings(root) {
   const g = k => root.querySelector(`[data-k="${k}"]`);
   const num = (k, d, lo, hi) => { const v = parseInt(g(k).value, 10); return isNaN(v) ? d : Math.max(lo, Math.min(hi, v)); };
   return {
-    settings: { pass_pct: num('pass_pct', 90, 50, 100), units_per_day: num('units_per_day', 1, 0, 10), review_cap: num('review_cap', 40, 10, 200), first_letter: g('first_letter').checked, speak: g('speak').checked,
+    settings: { pass_pct: num('pass_pct', 90, 50, 100), units_per_day: num('units_per_day', 1, 0, 10), review_cap: num('review_cap', 40, 10, 200), first_letter: g('first_letter').checked, hint_btn: g('hint_btn').checked, speak: g('speak').checked,
       prev_review: g('prev_review').checked, prev_n: num('prev_n', 10, 3, 30),
       steps: [...root.querySelectorAll('[data-step]:checked')].map(i => i.value),
       sequential: g('sequential').checked, only: [...root.querySelectorAll('[data-only]:checked')].map(i => +i.value).sort((x, y) => x - y) },
