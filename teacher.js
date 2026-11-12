@@ -349,7 +349,11 @@ function bookRegModal(after) {
 /* ---------- 과제 배정 ---------- */
 function gradeRank(g) { const m = String(g || '').match(/(초|중|고)\s*(\d)/); return m ? { 초: 0, 중: 10, 고: 20 }[m[1]] + +m[2] : 99; }
 function bookRank(b) { const m = String(b || '').match(/(초|중|고)\s*\d/); return gradeRank(m ? m[0] : ''); }
-function unitSort(a, b) { return (parseInt(a.lesson) || 0) - (parseInt(b.lesson) || 0) || String(a.code).localeCompare(String(b.code)); }
+function unitSort(a, b) {
+  const nm = x => { const m = String(x == null ? '' : x).match(/\d+/); return m ? +m[0] : 1e9; };
+  return nm(a.lesson) - nm(b.lesson) || nm(a.code) - nm(b.code)
+    || String(a.lesson || '').localeCompare(String(b.lesson || ''), 'ko', { numeric: true })
+    || String(a.code || '').localeCompare(String(b.code || ''), 'ko', { numeric: true }); }
 const SLOTS = [['dialog-voca', '대화문 단어'], ['dialog', '대화문 학습'], ['reading-voca', '본문 단어'], ['reading', '본문 학습'], ['grammar1', '문법 ①'], ['grammar2', '문법 ②'], ['mock', '동형모고'], ['hit', '적중모고'], ['exam', '기출문제']];
 function slotOf(u) { const c = String(u.code || ''); const m = /-(dialog-voca|reading-voca|dialog|reading|grammar1|grammar2|mock|hit|exam)$/.exec(c);
   if (m) return m[1]; if (/-A$/.test(c)) return 'grammar1'; if (/-B$/.test(c)) return 'grammar2'; if (/-grammar$/.test(c)) return 'grammar0'; return null; }
