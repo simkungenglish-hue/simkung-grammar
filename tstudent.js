@@ -276,7 +276,7 @@ function stuView(sid) {
     const lastV = ivP.slice().sort((x, y) => String(y.last_at).localeCompare(String(x.last_at))).slice(0, 8).map(x => { const v = IV_BY.get(x.verb_no); return v ? `<span class="spill ${x.bad > x.ok ? 'bad' : ''}" title="맞힘 ${x.ok} · 틀림 ${x.bad}">${esc(v.base)} <small>${x.ok}/${x.ok + x.bad}</small></span>` : ''; }).join('');
     const ivTot = stg.reduce((n, k) => n + ivStageVerbs(k).length, 0), ivHave = stg.reduce((n, k) => n + ivStageVerbs(k).filter(v => have.has(v.no)).length, 0);
     ivHtml = (lcard('🔁', '불규칙동사', `<em class="f">외운 ${ivHave}/${ivTot}개</em><em class="i">암기 ${mst}</em><em class="n">복습 ${dueN}</em><span class="tiny">하루 ${ivA.per_day}개 · ${stg.length}개 단계 · 최근 7일 ${days7}일</span>`, ivTot ? ivHave / ivTot * 100 : 0, `<div class="gu"><div class="row between" style="flex-wrap:wrap;gap:6px"><div><h3>하루 ${ivA.per_day}개 · ${stg.length}개 단계 배정</h3><span class="tiny">외운 동사 ${have.size}개 · 완전 암기 ${mst}개 · 밀린 복습 ${dueN}개 · 최근 7일 ${days7}일 학습</span></div>
-      <div class="row" style="gap:6px"><button class="btn small ghost" id="ivreset">처음부터</button><button class="btn small ghost" id="ivdel" style="color:#dc2626">배정 해제</button></div></div>
+      <div class="row" style="gap:6px">${(() => { const nx = IV_STAGES.find(n => !stg.includes(n) && n > (stg.length ? stg[stg.length - 1] : 0)); return nx == null ? '' : `<button class="btn small" id="ivnext" data-nx="${nx}" style="${ivTot && ivHave === ivTot ? 'background:#16a34a;border-color:#16a34a;color:#fff' : ''}">${ivStageName(nx)} 추가 ▶</button>`; })()}<button class="btn small ghost" id="ivreset">처음부터</button><button class="btn small ghost" id="ivdel" style="color:#dc2626">배정 해제</button></div></div>
       <div class="spills">${pills || '<span class="tiny">배정된 단계가 없어요</span>'}</div>
       <div class="stu-set">오늘 새 ${ivTodayD.new_n}/${ivA.per_day}개 · 복습 ${ivTodayD.rev_n}개 · 정답 ${ivTodayD.ok}/${ivTodayD.total} · 시간 ${ivTodayD.sec ? stuMin(ivTodayD.sec) : '-'}${(ivA.settings && ivA.settings.hint === false) ? ' · 쓰기 힌트 끔' : ''}</div>
       ${lastV ? `<div class="tiny" style="margin-top:8px">최근 학습 (맞힘/시도)</div><div class="spills">${lastV}</div>` : ''}</div>`, '🔁 불규칙동사'));
@@ -328,6 +328,13 @@ function stuBind(sid) {
   $('#stureport').onclick = () => { T.stuSid = null; T.tab = 'students'; T.view = sid; drawTeacher(); };
   $('#vadd').onclick = () => stuVAssign(sid);
   $('#ivset').onclick = () => stuIvSet(sid);
+  if ($('#ivnext')) $('#ivnext').onclick = async () => {
+    const nx = +$('#ivnext').dataset.nx, old = (STU.ivA || []).find(x => x.student_id === sid); if (!old) return;
+    if (!confirm(`불규칙동사 ${ivStageName(nx)}를 이어서 배정할까요?\n지금까지 배운 단계와 학습 기록은 그대로 두고, 이 단계의 동사가 새로 나와요.`)) return;
+    const row = Object.assign({}, old, { stages: [...new Set([...(old.stages || []), nx])].sort((a, b) => a - b), updated_at: new Date().toISOString() });
+    const { error } = await S.sb.from('iv_assign').upsert([row], { onConflict: 'student_id' }); if (error) return toast(errText(error), 4000);
+    STU.ivA = STU.ivA.filter(x => x.student_id !== sid).concat([row]); toast(ivStageName(nx) + ' 추가했어요'); stuView(sid);
+  };
   if ($('#ivreset')) $('#ivreset').onclick = async () => {
     if (!confirm('이 학생의 불규칙동사 학습 기록을 모두 지우고 처음부터 다시 시작할까요?')) return;
     const { error } = await S.sb.from('iv_progress').delete().eq('student_id', sid); if (error) return toast(errText(error), 4000);
