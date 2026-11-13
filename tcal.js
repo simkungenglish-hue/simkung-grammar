@@ -43,9 +43,11 @@
   #srp td.n{text-align:right;white-space:nowrap}
   #srp .tg{display:inline-block;border:1px solid #4f46e5;color:#4f46e5;border-radius:99px;padding:0 6px;font-size:10.5px;margin-right:4px}
   #srp .tg.g{border-color:#64748b;color:#64748b}
+  #srp h2 .btn{margin-left:8px;vertical-align:middle}
   #srp .cmt{border:1px solid #cbd5e1;border-radius:6px;min-height:54px;padding:6px 8px}
   #srp tr{break-inside:avoid}
   @media print{
+    #srp .srp-ai{display:none!important}
     body>*:not(#srp){display:none!important}
     #srp{position:static;background:#fff;padding:0;overflow:visible}
     #srp .srp-bar{display:none}
@@ -199,9 +201,32 @@
       ${sec('4. 불규칙동사', '<th>배정</th><th>외운 동사</th><th>암기 상태</th><th>기간 내 학습</th>', ivRow)}
       ${sec('5. 날짜별 학습 일지', '<th>날짜</th><th>학습한 내용</th><th>시간</th>', log)}
       ${sec('6. 시간이 오래 걸린 문제 (문법)', '<th>날짜</th><th>단원</th><th>문제</th><th>결과</th><th>시간</th>', slow)}
-      <h2>선생님 코멘트</h2><div class="cmt" contenteditable="true"></div>
+      <h2>선생님 코멘트 <button class="btn small srp-ai" id="srp-ai" type="button">✨ AI로 작성</button><span class="tiny srp-ai" id="srp-aitag" style="font-weight:400"></span></h2><div class="cmt" id="srp-cmt" contenteditable="true"></div>
       <p class="tiny" style="color:#666;margin-top:6px">· 모든 수치는 저장된 학습 기록에서 계산했어요. 어휘는 문제별 시간을 기록하지 않아 단계 단위로 보여 드려요. 학습 시간은 화면을 실제로 조작한 시간만 더한 값이에요.</p></div>`;
     document.body.appendChild(el);
+    el.querySelector('#srp-ai').onclick = async () => {
+      const b = el.querySelector('#srp-ai'), cm = el.querySelector('#srp-cmt'), tg = el.querySelector('#srp-aitag');
+      if (cm.textContent.trim() && !confirm('쓰여 있는 코멘트를 AI가 쓴 글로 바꿀까요?')) return;
+      const L = [];
+      L.push(`기간: ${rangeTxt}`, `학습한 날 ${studyDays}일 · 총 학습 ${Math.round(tot / 60)}분 · 마지막 학습 ${lastK || '기록 없음'}`);
+      if (allG.length) L.push(`문법: 푼 문제 ${allG.length}번${grd.length ? ` · 정답 ${okN}/${grd.length} (${Math.round(okN / grd.length * 100)}%)` : ''}`);
+      byBook.forEach((Ls, bk) => { const items = Ls.filter(({ a }) => (T.byStu.get(sid) || []).some(t => t.assignment_id === a.id && inR(dayKey(t.submitted_at)))).map(({ a, u }) => {
+        const stg = STAGES.map(([k, n]) => ({ n, sm: tStage(a, k) })).filter(x => x.sm.total), fin = stg.filter(x => x.sm.finished).length, pc = stg.filter(x => x.sm.finished && x.sm.pct != null).map(x => x.sm.pct);
+        return `${u.lesson ? u.lesson + ' ' : ''}${u.title} ${fin}/${stg.length}단계${pc.length ? ' 평균 ' + Math.round(pc.reduce((x, y) => x + y, 0) / pc.length) + '점' : ''}`; });
+        if (items.length) L.push(`문법 교재 「${bk}」${arSet.has(bk) ? '(학습 종료)' : ''}: ` + items.slice(0, 10).join(' / ')); });
+      const slowL = allG.filter(a => a.time_spent_sec > 0).sort((x, y) => y.time_spent_sec - x.time_spent_sec).slice(0, 3).map(a => { const q = T.qById[a.question_id] || {}, u = T.uById[a.unit_id || q.unit_id] || {}; return `${u.title || ''} ${Math.round(a.time_spent_sec / 60)}분${a.is_correct === false ? '(오답)' : ''}`; });
+      if (slowL.length) L.push('오래 걸린 문제: ' + slowL.join(', '));
+      try { const v = stuVocabInfo(sid).map(x => `${x.bk.title} ${x.passed}/${x.us.length}${vtUnitWord(x.bk)} 통과`); if (v.length) L.push('어휘: ' + v.join(', ')); } catch (e) { /* 없음 */ }
+      try { const p = stuPassInfo(sid).map(x => `${x.p.title} ${x.done.length}${x.total ? '/' + x.total : ''}단계`); if (p.length) L.push('내신 본문: ' + p.join(', ')); } catch (e) { /* 없음 */ }
+      if (ivA) { const stg = (ivA.stages || []).filter(n => IV_STAGES.includes(n)), have = new Set(ivP.map(x => x.verb_no)); L.push(`불규칙동사: 외운 ${stg.reduce((n, k) => n + ivStageVerbs(k).filter(v => have.has(v.no)).length, 0)}/${stg.reduce((n, k) => n + ivStageVerbs(k).length, 0)}개 · 완전 암기 ${ivP.filter(x => x.box >= 5).length}개`); }
+      b.disabled = true; b.textContent = 'AI가 쓰는 중…'; tg.textContent = '';
+      try {
+        const r = await invokeFn('ai-overall', { summary: L.join('\n') });
+        if (!r.ok) throw new Error(r.message || 'AI 코멘트를 받지 못했어요.');
+        cm.textContent = String(r.text).replace(/\{이름\}/g, s.name); tg.textContent = ' AI 초안이에요 · 고쳐 쓰고 인쇄하세요';
+      } catch (e) { toast(errText(e), 4000); }
+      b.disabled = false; b.textContent = '✨ 다시 작성';
+    };
     el.querySelector('#srp-x').onclick = () => el.remove();
     el.querySelector('#srp-pr').onclick = () => window.print();
     el.querySelector('#srp-r').onchange = e => window.stuReport(sid, parseInt(e.target.value, 10));
