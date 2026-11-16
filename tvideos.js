@@ -63,12 +63,12 @@ async function tabVideos() {
   };
   const chap = isCh ? chapterRows() : null;
   // 부트캠프: 유닛마다 한 줄씩이 아니라 썸네일 격자로 한 화면에, 유닛 번호 순서(U1, U2, … U10, U11)로 보여요
-  if (TV.book === '부트캠프' && !document.getElementById('tv-bc2-css')) {
+  if (!document.getElementById('tv-bc2-css')) {
     const st = document.createElement('style'); st.id = 'tv-bc2-css';
     st.textContent = '.bcv-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px}'
       + '.bcv-card{background:#fff;border:1px solid #e2e8f0;border-radius:14px;overflow:hidden;display:flex;flex-direction:column}'
       + '.bcv-hd{display:flex;align-items:center;gap:6px;padding:7px 9px 6px;min-height:36px}.bcv-hd b{font-size:.82rem;line-height:1.3}.bcv-hd .badge{font-size:.72rem;padding:2px 7px}'
-      + '.bcv-ft{display:flex;flex-direction:column;gap:5px;padding:7px 9px 9px}.bcv-ft .row{gap:5px}.bcv-ft .btn.small{padding:4px 9px;font-size:.78rem}.bcv-ft .badge{font-size:.72rem}'
+      + '.bcv-ft{display:flex;flex-direction:column;gap:5px;padding:7px 9px 9px}.bcv-ft .row{gap:5px;flex-wrap:wrap}.bcv-ft .btn.small{padding:4px 9px;font-size:.78rem}.bcv-ft .badge{font-size:.72rem}'
       + '.bcv-card .vthumb .vplay{width:30px;height:30px;font-size:12px}.bcv-card .vthumb .vlen{font-size:10px;padding:1px 5px}.bcv-card .vthumb .vfb{font-size:12px;padding:6px}'
       + '.bcv-empty{border-style:dashed;justify-content:center}.bcv-empty .bcv-ft{align-items:flex-start}'
       + '@media (max-width:600px){.bcv-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}}';
@@ -89,7 +89,32 @@ async function tabVideos() {
         <div class="row"><button class="btn small ghost" data-tvp="${v.id}">미리보기</button><button class="btn small ghost" data-tvd="${v.id}">빼기</button></div></div></div>`;
     }).join('')}</div>`;
   };
-  const rows = TV.book === '부트캠프' ? bcGrid() : (chap ? chap.html : '') + (chap ? chap.restUnits : units).map(u => {
+  // 모든 교재: 그 교재의 영상 전체를 썸네일 격자로 한눈에 (과/챕터 순서). 한 영상이 여러 단원에 걸리면 카드 하나로 묶어요.
+  const genGrid = () => {
+    const bookVids = TV.vids.filter(v => v.school_book === TV.book);
+    const byYt = new Map(); bookVids.forEach(v => { if (!byYt.has(v.yt_id)) byYt.set(v.yt_id, []); byYt.get(v.yt_id).push(v); });
+    const groups = [...byYt.values()].map(arr => { arr.sort((a, b) => (a.ord || 0) - (b.ord || 0)); return { v: arr[0], arr }; })
+      .sort((a, b) => (a.v.lesson || 999) - (b.v.lesson || 999) || (a.v.no || 0) - (b.v.no || 0) || (a.v.ord || 0) - (b.v.ord || 0));
+    const tag = v => v.lesson === 99 ? '외부지문' : (v.lesson ? (isCh ? 'Ch.' + v.lesson : v.lesson + '과') : '기타');
+    const cards = groups.map(({ v, arr }) => {
+      const us = arr.map(x => ({ x, u: x.unit_id ? T.units.find(u => u.id === x.unit_id) : null })).filter(z => z.u)
+        .sort((a, b) => String(a.u.lesson).localeCompare(String(b.u.lesson), undefined, { numeric: true }));
+      const s = tvStats(v.yt_id);
+      const part = us.filter(z => z.x.start_sec != null).map(z => `<button class="btn small ghost" data-tvp="${z.x.id}" data-at="${z.x.start_sec}" title="${esc(z.u.title)}">▶ ${esc(z.u.lesson || '')} (${tvLen2(z.x.start_sec)})</button>`).join('');
+      const serse = v.serse_sec != null ? `<button class="btn small ghost" data-tvp="${v.id}" data-at="${v.serse_sec}">✍️ 서술형 (${tvLen2(v.serse_sec)})</button>` : '';
+      return `<div class="bcv-card"><div class="bcv-hd"><span class="badge gray">${esc(tag(v))}</span><b>${esc(v.title)}</b></div>
+        <button class="vthumb" data-tvp="${v.id}" title="미리보기">${typeof vThumb === 'function' ? vThumb(v) : ''}</button>
+        <div class="bcv-ft">${s ? `<span class="badge ${s.n ? 'ok' : 'gray'}" style="align-self:flex-start">본 학생 ${s.n}명 · 완료 ${s.done}명</span>` : ''}
+        ${part || serse ? `<div class="row">${part}${serse}</div>` : ''}
+        <div class="row"><button class="btn small ghost" data-tvp="${v.id}">미리보기</button><button class="btn small ghost" data-tvd="${v.id}">빼기</button></div></div></div>`;
+    }).join('');
+    const withV = new Set(bookVids.map(v => v.unit_id).filter(Boolean));
+    const empty = units.filter(u => !withV.has(u.id));
+    const emptyHtml = empty.length ? `<details style="margin-top:12px"><summary class="tiny" style="cursor:pointer">영상이 없는 단원 ${empty.length}개 (눌러서 영상 넣기)</summary>
+      <div class="row" style="gap:6px;flex-wrap:wrap;margin-top:8px">${empty.map(u => `<button class="btn small ghost" data-tva="${u.id}">${esc(u.lesson ? u.lesson + ' ' : '')}${esc(u.title)} +</button>`).join('')}</div></details>` : '';
+    return cards ? `<div class="bcv-grid">${cards}</div>${emptyHtml}` : `<p class="tiny">이 교재에는 아직 영상이 없어요.</p>${emptyHtml}`;
+  };
+  const rowsOld = (chap ? chap.html : '') + (chap ? chap.restUnits : units).map(u => {
     const vs = TV.vids.filter(v => v.unit_id === u.id).sort((a, b) => a.ord - b.ord);
     const chips = vs.length ? `<div class="vgrid">${vs.map(tvChip).join('')}</div>` : '';
     return `<div class="card" style="padding:14px 16px;margin-bottom:10px">
@@ -97,6 +122,7 @@ async function tabVideos() {
       <button class="btn small" data-tva="${u.id}">+ 영상 넣기</button></div>
       ${chips || '<p class="tiny" style="margin-top:6px">아직 영상이 없어요.</p>'}</div>`;
   }).join('');
+  const rows = TV.book === '부트캠프' ? bcGrid() : genGrid();
   if (!document.getElementById('tv-compact-css')) {
     const cs = document.createElement('style'); cs.id = 'tv-compact-css';
     cs.textContent = '.tv-compact .vgrid{grid-template-columns:repeat(auto-fill,minmax(180px,1fr))!important;gap:10px}'
@@ -109,7 +135,7 @@ async function tabVideos() {
   tb.innerHTML = `<div class="tv-compact"><section class="hero"><div><small>교재·단원별 유튜브 강의</small><h1>영상 강의</h1></div></section>
     <div class="card soft"><p class="muted" style="margin:0">여기서 넣은 영상은 학생 화면의 해당 단원에 <b>🎬 영상 강의</b> 버튼으로 나와요. 학생에게는 그 단원이 <b>배정</b>되어 있어야 보여요. 지금 연결된 영상은 모두 <b>${total}개</b>예요.</p></div>
     <div class="row" style="gap:8px;flex-wrap:wrap;margin:12px 0">${books.map(b => `<button class="btn small ${b === TV.book ? '' : 'ghost'}" data-tvb="${esc(b)}">${esc(b)}${vidCount(b) ? ` · 🎬${vidCount(b)}` : ''}</button>`).join('')}</div>
-    ${tvLibSection()}${rows || ''}</div>`;
+    ${tvLibBar()}${rows || ''}</div>`;
   tb.querySelectorAll('[data-tvb]').forEach(b => b.onclick = () => { TV.book = b.dataset.tvb; tabVideos(); });
   tb.querySelectorAll('[data-tvp]').forEach(b => b.onclick = () => tvPreview(b.dataset.tvp, b.dataset.at != null ? +b.dataset.at : null));
   tb.querySelectorAll('[data-tvd]').forEach(b => b.onclick = () => tvDelete(b.dataset.tvd));
@@ -124,6 +150,10 @@ function tvChip(v) {
     <div class="vbody"><b>${esc(v.title)}</b>
     ${st ? `<span class="badge ${st.n ? 'ok' : 'gray'}" style="align-self:flex-start">본 학생 ${st.n}명 · 완료 ${st.done}명</span>` : ''}
     <div class="row" style="gap:6px"><button class="btn small ghost" data-tvp="${v.id}">미리보기</button><button class="btn small ghost" data-tvd="${v.id}">빼기</button></div></div></div>`;
+}
+function tvLibBar() {
+  const n = new Set(TV.vids.filter(v => v.school_book === TV.book).map(v => v.yt_id)).size;
+  return `<div class="row between" style="align-items:center;gap:8px;margin:0 0 10px"><div><b>📚 ${esc(TV.book)}</b> <span class="tiny">영상 ${n}개 · 썸네일을 누르면 미리보기로 재생돼요.</span></div><button class="btn small" data-tvlib="1">+ 영상 넣기</button></div>`;
 }
 function tvLibSection() {
   const lv = TV.vids.filter(v => !v.unit_id && v.school_book === TV.book).sort((a, b) => (a.lesson || 0) - (b.lesson || 0) || (a.no || 0) - (b.no || 0));
