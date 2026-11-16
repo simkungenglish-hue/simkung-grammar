@@ -54,7 +54,7 @@ async function tabVideos() {
         <div class="row" style="gap:6px">${v.start_sec != null ? `<button class="btn small ghost" data-tvp="${v.id}" data-at="${v.start_sec}">▶ 이 부분 (${tvLen2(v.start_sec)})</button>` : ''}${v.start_sec == null && v.serse_sec != null ? `<button class="btn small ghost" data-tvp="${v.id}" data-at="${v.serse_sec}">✍️ 서술형 (${tvLen2(v.serse_sec)})</button>` : ''}</div></div>`).join('');
       return `<div class="card" style="padding:14px 16px;margin-bottom:12px;border:2px solid #c7d2fe;background:linear-gradient(180deg,#f5f7ff,#fff)">
         <h3 style="margin:0 0 8px">${esc(g.v.title)}</h3>
-        <div class="vgrid" style="grid-template-columns:minmax(0,360px)">${tvChip(g.v)}</div>
+        <div class="vgrid" style="grid-template-columns:minmax(0,200px)">${tvChip(g.v)}</div>
         ${g.v.serse_sec != null ? `<button class="btn small" style="margin-top:8px" data-tvp="${g.v.id}" data-at="${g.v.serse_sec}">✍️ 서술형 풀이 보기 (${tvLen2(g.v.serse_sec)})</button>` : ''}
         <div style="margin-top:6px">${urows}</div></div>`;
     }).join('');
@@ -96,10 +96,19 @@ async function tabVideos() {
       <button class="btn small" data-tva="${u.id}">+ 영상 넣기</button></div>
       ${chips || '<p class="tiny" style="margin-top:6px">아직 영상이 없어요.</p>'}</div>`;
   }).join('');
-  tb.innerHTML = `<section class="hero"><div><small>교재·단원별 유튜브 강의</small><h1>영상 강의</h1></div></section>
+  if (!document.getElementById('tv-compact-css')) {
+    const cs = document.createElement('style'); cs.id = 'tv-compact-css';
+    cs.textContent = '.tv-compact .vgrid{grid-template-columns:repeat(auto-fill,minmax(180px,1fr))!important;gap:10px}'
+      + '.tv-compact .vbody{padding:7px 9px 9px;gap:5px}.tv-compact .vbody b{font-size:.82rem}'
+      + '.tv-compact .vbody .btn.small{padding:4px 9px;font-size:.78rem}'
+      + '.tv-compact .vthumb .vplay{width:30px;height:30px;font-size:12px}.tv-compact .vthumb .vlen{font-size:10px;padding:1px 5px}.tv-compact .vthumb .vfb{font-size:12px;padding:6px}'
+      + '.tv-compact .chgroup .chvid .vcard{max-width:200px}';
+    document.head.appendChild(cs);
+  }
+  tb.innerHTML = `<div class="tv-compact"><section class="hero"><div><small>교재·단원별 유튜브 강의</small><h1>영상 강의</h1></div></section>
     <div class="card soft"><p class="muted" style="margin:0">여기서 넣은 영상은 학생 화면의 해당 단원에 <b>🎬 영상 강의</b> 버튼으로 나와요. 학생에게는 그 단원이 <b>배정</b>되어 있어야 보여요. 지금 연결된 영상은 모두 <b>${total}개</b>예요.</p></div>
     <div class="row" style="gap:8px;flex-wrap:wrap;margin:12px 0">${books.map(b => `<button class="btn small ${b === TV.book ? '' : 'ghost'}" data-tvb="${esc(b)}">${esc(b)}${vidCount(b) ? ` · 🎬${vidCount(b)}` : ''}</button>`).join('')}</div>
-    ${tvLibSection()}${rows || ''}`;
+    ${tvLibSection()}${rows || ''}</div>`;
   tb.querySelectorAll('[data-tvb]').forEach(b => b.onclick = () => { TV.book = b.dataset.tvb; tabVideos(); });
   tb.querySelectorAll('[data-tvp]').forEach(b => b.onclick = () => tvPreview(b.dataset.tvp, b.dataset.at != null ? +b.dataset.at : null));
   tb.querySelectorAll('[data-tvd]').forEach(b => b.onclick = () => tvDelete(b.dataset.tvd));
