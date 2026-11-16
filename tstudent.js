@@ -128,13 +128,18 @@ const stuUnitName = u => (u.title || ('Unit ' + u.ord)).replace(/\s+/g, ' ').sli
 /* ---------- ① 오늘 현황 카드: 등록된 학생만 간단히 (자세한 건 학생 화면에서) ---------- */
 const stuArchSet = sid => new Set((STU.arch || []).filter(r => r.student_id === sid).map(r => r.school_book));
 progressRows = function (sid) {
-  const _ar = stuArchSet(sid);
-  let v = 0, g = (T.asg || []).filter(a => a.student_id === sid && !_ar.has(((T.uById[a.unit_id] || {}).school_book) || '교재 미정')).length, p = 0;
-  try { v = stuVocabInfo(sid).length; p = stuPassInfo(sid).length; } catch (e) { /* 정보가 없어도 카드는 보여요 */ }
-  const chip = (ic, n, un) => `<span class="sgchip ${n ? '' : 'zero'}">${ic} ${n}${un}</span>`;
-  const ia = (STU.ivA || []).find(x => x.student_id === sid), iN = ia ? (ia.stages || []).filter(n => IV_STAGES.includes(n)).length : 0;
-  return `<div class="sgline">${chip('📘 어휘', v, '권')}${chip('📗 문법', g, '단원')}${chip('📖 본문', p, '개')}${chip('🔁 불규칙', iN, '단계')}</div><i data-sid="${sid}" hidden></i>`;
+  const _ar = stuArchSet(sid), asgs = (T.asg || []).filter(a => a.student_id === sid && !_ar.has(((T.uById[a.unit_id] || {}).school_book) || '교재 미정'));
+  let vA = 0, vB = 0, pA = 0, pB = 0, vN = 0, pN = 0;
+  try { const vi = stuVocabInfo(sid); vN = vi.length; vi.forEach(x => { vA += x.passed || 0; vB += (x.us || []).length; }); } catch (e) { /* 정보가 없어도 카드는 보여요 */ }
+  try { const pi = stuPassInfo(sid); pN = pi.length; pi.forEach(x => { pA += (x.done || []).length; pB += x.total || 0; }); } catch (e) { /* 위와 같아요 */ }
+  let gA = 0; asgs.forEach(a => { const man = (a.settings || {}).manual_done_round === (a.current_round || 1), stg = STAGES.map(([k]) => tStage(a, k)).filter(x => x.total); if (man || (stg.length && stg.every(x => x.finished))) gA++; });
+  const chip = (ic, a, b, un, tip) => { const p = b ? Math.min(100, Math.round(a / b * 100)) : 0; return `<span class="sgchip pg ${b ? (a >= b ? 'full' : '') : 'zero'}" style="--p:${p}%" title="${esc(tip)}">${ic} ${b ? a + '/' + b + un : '0' + un}</span>`; };
+  const ia = (STU.ivA || []).find(x => x.student_id === sid);
+  let iA = 0, iB = 0;
+  if (ia) { const have = new Set((STU.ivP || []).filter(x => x.student_id === sid).map(x => x.verb_no)); (ia.stages || []).filter(n => IV_STAGES.includes(n)).forEach(n => { const vs = ivStageVerbs(n); iB += vs.length; iA += vs.filter(v => have.has(v.no)).length; }); }
+  return `<div class="sgline">${chip('📘 어휘', vA, vB, '유닛', `단어장 ${vN}권 · 통과한 유닛 / 전체`)}${chip('📗 문법', gA, asgs.length, '단원', '완료한 단원 / 배정한 단원')}${chip('📖 본문', pA, pB, '단계', `본문 ${pN}개 · 끝낸 단계 / 전체`)}${chip('🔁 불규칙', iA, iB, '개', '외운 동사 / 배정한 동사')}</div><i data-sid="${sid}" hidden></i>`;
 };
+(function () { const st = document.createElement('style'); st.textContent = '.sgchip.pg{background:linear-gradient(90deg,rgba(79,70,229,.2) var(--p),#f1f5f9 var(--p))}.sgchip.pg.full{background:#dcfce7;color:#166534}.sgchip.pg.zero{background:#f1f5f9}'; document.head.appendChild(st); })();
 const _tabToday = tabToday;
 tabToday = function () {
   _tabToday();
