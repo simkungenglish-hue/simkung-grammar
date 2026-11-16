@@ -62,7 +62,33 @@ async function tabVideos() {
     return { html, restUnits };
   };
   const chap = isCh ? chapterRows() : null;
-  const rows = (chap ? chap.html : '') + (chap ? chap.restUnits : units).map(u => {
+  // 부트캠프: 유닛마다 한 줄씩이 아니라 썸네일 격자로 한 화면에, 유닛 번호 순서(U1, U2, … U10, U11)로 보여요
+  if (TV.book === '부트캠프' && !document.getElementById('tv-bc-css')) {
+    const st = document.createElement('style'); st.id = 'tv-bc-css';
+    st.textContent = '.bcv-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}'
+      + '.bcv-card{background:#fff;border:1px solid #e2e8f0;border-radius:14px;overflow:hidden;display:flex;flex-direction:column}'
+      + '.bcv-hd{display:flex;align-items:center;gap:8px;padding:10px 12px 8px;min-height:44px}.bcv-hd b{font-size:.9rem;line-height:1.3}'
+      + '.bcv-ft{display:flex;flex-direction:column;gap:6px;padding:8px 12px 12px}.bcv-ft .row{gap:6px}'
+      + '.bcv-empty{border-style:dashed;justify-content:center}.bcv-empty .bcv-ft{align-items:flex-start}'
+      + '@media (max-width:600px){.bcv-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}}';
+    document.head.appendChild(st);
+  }
+  const bcNo = u => { const m = String(u.code || '').match(/(\d+)\s*$/); return m ? Number(m[1]) : 999; };
+  const bcGrid = () => {
+    const us = units.slice().sort((a, b) => bcNo(a) - bcNo(b) || String(a.code).localeCompare(String(b.code)));
+    const nVid = us.filter(u => TV.vids.some(v => v.unit_id === u.id)).length;
+    return `<div class="tiny" style="margin:0 0 8px">유닛 ${us.length}개 · 영상이 있는 유닛 ${nVid}개 — 썸네일을 누르면 미리보기로 재생돼요.</div><div class="bcv-grid">${us.map(u => {
+      const code = String(u.code || '').replace(/^BC-/, ''), title = String(u.title || '').replace(/^U\d+\s*/, '');
+      const v = TV.vids.filter(x => x.unit_id === u.id).sort((a, b) => a.ord - b.ord)[0];
+      const hd = `<div class="bcv-hd"><span class="badge gray">${esc(code)}</span><b>${esc(title)}</b></div>`;
+      if (!v) return `<div class="bcv-card bcv-empty">${hd}<div class="bcv-ft"><span class="tiny">아직 영상이 없어요.</span><button class="btn small" data-tva="${u.id}">+ 영상 넣기</button></div></div>`;
+      const s = tvStats(v.yt_id);
+      return `<div class="bcv-card">${hd}<button class="vthumb" data-tvp="${v.id}" title="미리보기">${typeof vThumb === 'function' ? vThumb(v) : ''}</button>
+        <div class="bcv-ft">${s ? `<span class="badge ${s.n ? 'ok' : 'gray'}" style="align-self:flex-start">본 학생 ${s.n}명 · 완료 ${s.done}명</span>` : ''}
+        <div class="row"><button class="btn small ghost" data-tvp="${v.id}">미리보기</button><button class="btn small ghost" data-tvd="${v.id}">빼기</button></div></div></div>`;
+    }).join('')}</div>`;
+  };
+  const rows = TV.book === '부트캠프' ? bcGrid() : (chap ? chap.html : '') + (chap ? chap.restUnits : units).map(u => {
     const vs = TV.vids.filter(v => v.unit_id === u.id).sort((a, b) => a.ord - b.ord);
     const chips = vs.length ? `<div class="vgrid">${vs.map(tvChip).join('')}</div>` : '';
     return `<div class="card" style="padding:14px 16px;margin-bottom:10px">
