@@ -4,8 +4,50 @@
 /* ---------- 학생 목록 / 상세 ---------- */
 function tabStudents() {
   T.view = null;
-  $('#tb').innerHTML = `<div class="card"><h2>학생</h2>${T.students.map(s => `<div class="stage" style="margin-bottom:8px"><div><b>${esc(s.name)}</b> <span class="tiny">${esc(s.grade)}</span><div>${progressChips(s.id)}</div></div>
-    <button class="btn small" data-s="${s.id}">상세 · 리포트</button></div>`).join('') || '<p class="muted">학생이 없어요.</p>'}</div>`;
+  if (!document.getElementById('tstu-grid-css')) {
+    const st = document.createElement('style'); st.id = 'tstu-grid-css';
+    st.textContent = '.sg-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:12px;align-items:start}'
+      + '.sg-card{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:12px 14px}'
+      + '.sg-top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}.sg-top b{font-size:1.02rem}.sg-top .btn{white-space:nowrap;flex:none}'
+      + '.sg-sum{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}.sg-sum span{font-size:.74rem;font-weight:700;padding:2px 8px;border-radius:99px;background:#eef2ff;color:#4338ca}.sg-sum span.ok{background:#ecfdf5;color:#059669}.sg-sum span.no{background:#f1f5f9;color:#64748b}'
+      + '.sg-bk{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-top:10px;padding-top:8px;border-top:1px dashed #e2e8f0;font-size:.78rem;font-weight:800;color:#4338ca}.sg-bk small{font-weight:700;color:#64748b}'
+      + '.sg-its{display:grid;grid-template-columns:repeat(auto-fill,minmax(135px,1fr));gap:6px 8px;margin-top:6px}'
+      + '.sg-it{background:#f8fafc;border:1px solid #eef2f7;border-radius:9px;padding:6px 8px;min-width:0}.sg-it .t{font-size:.76rem;font-weight:700;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}'
+      + '.sg-it .s{font-size:.7rem;color:#64748b;margin-top:2px}.sg-it .s.done{color:#059669;font-weight:800}.sg-it .s.warn{color:#dc2626;font-weight:800}'
+      + '.sg-it .bar{height:5px;background:#e2e8f0;border-radius:99px;overflow:hidden;margin-top:4px}.sg-it .bar i{display:block;height:100%;background:#6366f1}.sg-it .bar i.ok{background:#10b981}'
+      + '@media (max-width:600px){.sg-grid{grid-template-columns:1fr}}';
+    document.head.appendChild(st);
+  }
+  const num = x => { const m = String(x || '').match(/(\d+)/); return m ? Number(m[1]) : 999; };
+  const gIdx = b => (typeof tvGradeIdx === 'function' ? tvGradeIdx(b) : 99);
+  const card = s => {
+    const mine = T.asg.filter(a => a.student_id === s.id).map(a => {
+      const u = T.uById[a.unit_id]; if (!u) return null;
+      let cur = null, fail = false, dn = 0, tot = 0;
+      for (const [k, n] of STAGES) {
+        const sm = tStage(a, k); if (!sm.total) continue;
+        dn += sm.done || 0; tot += sm.total;
+        if (sm.finished && !sm.passed && !sm.waiting) fail = true;
+        if (!sm.finished && !cur) cur = { n, sm };
+      }
+      const lesson = String(u.lesson || u.code || ''), title = String(u.title || '');
+      const name = title && !title.startsWith(lesson) ? (lesson ? lesson + ' ' : '') + title : (title || lesson);
+      return { u, name: name + ((a.current_round || 1) > 1 ? ' · ' + a.current_round + '회차' : ''), cur, fail, pct: tot ? Math.round(dn / tot * 100) : 0, done: !cur && tot > 0 };
+    }).filter(Boolean);
+    const books = [...new Set(mine.map(x => x.u.school_book || '기타'))].sort((a, b) => gIdx(a) - gIdx(b) || a.localeCompare(b, 'ko'));
+    const nDone = mine.filter(x => x.done).length;
+    const groups = books.map(b => {
+      const its = mine.filter(x => (x.u.school_book || '기타') === b).sort((a, c) => num(a.u.lesson) - num(c.u.lesson) || num(a.u.code) - num(c.u.code) || String(a.name).localeCompare(String(c.name), 'ko'));
+      const d = its.filter(x => x.done).length;
+      return `<div class="sg-bk"><span>${esc(b)}</span><small>완료 ${d}/${its.length}</small></div><div class="sg-its">${its.map(x => `<div class="sg-it"><div class="t" title="${esc(x.name)}">${esc(x.name)}</div>
+        <div class="s ${x.done ? 'done' : x.fail ? 'warn' : ''}">${x.done ? '✓ 모든 단계 완료' : esc(x.cur ? x.cur.n + ' ' + x.cur.sm.done + '/' + x.cur.sm.total : '시작 전')}${x.fail ? ' ⚠' : ''}</div>
+        <div class="bar"><i class="${x.done ? 'ok' : ''}" style="width:${x.pct}%"></i></div></div>`).join('')}</div>`;
+    }).join('');
+    return `<div class="sg-card"><div class="sg-top"><div><b>${esc(s.name)}</b> <span class="tiny">${esc(s.grade)}</span>
+      <div class="sg-sum">${mine.length ? `<span>배정 ${mine.length}</span><span class="${nDone ? 'ok' : 'no'}">완료 ${nDone}</span>` : '<span class="no">배정 없음</span>'}</div></div>
+      <button class="btn small" data-s="${s.id}">상세 · 리포트</button></div>${groups}</div>`;
+  };
+  $('#tb').innerHTML = `<div class="card"><h2>학생 <span class="tiny">${T.students.length}명</span></h2>${T.students.length ? `<div class="sg-grid">${T.students.map(card).join('')}</div>` : '<p class="muted">학생이 없어요.</p>'}</div>`;
   document.querySelectorAll('[data-s]').forEach(b => b.onclick = () => studentDetail(b.dataset.s));
 }
 function helpLabel(h) { return { none: '없음', hint: '힌트', explanation: '해설' }[h] || h; }
