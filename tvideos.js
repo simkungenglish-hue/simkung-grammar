@@ -63,12 +63,13 @@ async function tabVideos() {
   };
   const chap = isCh ? chapterRows() : null;
   // 부트캠프: 유닛마다 한 줄씩이 아니라 썸네일 격자로 한 화면에, 유닛 번호 순서(U1, U2, … U10, U11)로 보여요
-  if (TV.book === '부트캠프' && !document.getElementById('tv-bc-css')) {
-    const st = document.createElement('style'); st.id = 'tv-bc-css';
-    st.textContent = '.bcv-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}'
+  if (TV.book === '부트캠프' && !document.getElementById('tv-bc2-css')) {
+    const st = document.createElement('style'); st.id = 'tv-bc2-css';
+    st.textContent = '.bcv-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px}'
       + '.bcv-card{background:#fff;border:1px solid #e2e8f0;border-radius:14px;overflow:hidden;display:flex;flex-direction:column}'
-      + '.bcv-hd{display:flex;align-items:center;gap:8px;padding:10px 12px 8px;min-height:44px}.bcv-hd b{font-size:.9rem;line-height:1.3}'
-      + '.bcv-ft{display:flex;flex-direction:column;gap:6px;padding:8px 12px 12px}.bcv-ft .row{gap:6px}'
+      + '.bcv-hd{display:flex;align-items:center;gap:6px;padding:7px 9px 6px;min-height:36px}.bcv-hd b{font-size:.82rem;line-height:1.3}.bcv-hd .badge{font-size:.72rem;padding:2px 7px}'
+      + '.bcv-ft{display:flex;flex-direction:column;gap:5px;padding:7px 9px 9px}.bcv-ft .row{gap:5px}.bcv-ft .btn.small{padding:4px 9px;font-size:.78rem}.bcv-ft .badge{font-size:.72rem}'
+      + '.bcv-card .vthumb .vplay{width:30px;height:30px;font-size:12px}.bcv-card .vthumb .vlen{font-size:10px;padding:1px 5px}.bcv-card .vthumb .vfb{font-size:12px;padding:6px}'
       + '.bcv-empty{border-style:dashed;justify-content:center}.bcv-empty .bcv-ft{align-items:flex-start}'
       + '@media (max-width:600px){.bcv-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}}';
     document.head.appendChild(st);
