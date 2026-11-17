@@ -305,7 +305,7 @@ function stuView(sid) {
     ivHtml = (lcard('🔁', '불규칙동사', `<em class="f">외운 ${ivHave}/${ivTot}개</em><em class="i">암기 ${mst}</em><em class="n">복습 ${dueN}</em><span class="tiny">하루 ${ivA.per_day}개 · ${stg.length}개 단계 · 최근 7일 ${days7}일</span>`, ivTot ? ivHave / ivTot * 100 : 0, `<div class="gu"><div class="row between" style="flex-wrap:wrap;gap:6px"><div><h3>하루 ${ivA.per_day}개 · ${stg.length}개 단계 배정</h3><span class="tiny">외운 동사 ${have.size}개 · 완전 암기 ${mst}개 · 밀린 복습 ${dueN}개 · 최근 7일 ${days7}일 학습</span></div>
       <div class="row" style="gap:6px">${(() => { const nx = IV_STAGES.find(n => !stg.includes(n) && n > (stg.length ? stg[stg.length - 1] : 0)); return nx == null ? '' : `<button class="btn small" id="ivnext" data-nx="${nx}" style="${ivTot && ivHave === ivTot ? 'background:#16a34a;border-color:#16a34a;color:#fff' : ''}">${ivStageName(nx)} 추가 ▶</button>`; })()}<button class="btn small ghost" id="ivreset">처음부터</button><button class="btn small ghost" id="ivdel" style="color:#dc2626">배정 해제</button></div></div>
       <div class="spills">${pills || '<span class="tiny">배정된 단계가 없어요</span>'}</div>
-      <div class="stu-set">오늘 새 ${ivTodayD.new_n}/${ivA.per_day}개 · 복습 ${ivTodayD.rev_n}개 · 정답 ${ivTodayD.ok}/${ivTodayD.total} · 시간 ${ivTodayD.sec ? stuMin(ivTodayD.sec) : '-'}${(ivA.settings && ivA.settings.hint === false) ? ' · 쓰기 힌트 끔' : ''}</div>
+      <div class="stu-set">${(ivA.settings && ivA.settings.no_daily_limit) ? `오늘 새 ${ivTodayD.new_n}개 (${ivA.per_day}개씩 · 하루 제한 없음)` : `오늘 새 ${ivTodayD.new_n}/${ivA.per_day}개`} · 복습 ${ivTodayD.rev_n}개 · 정답 ${ivTodayD.ok}/${ivTodayD.total} · 시간 ${ivTodayD.sec ? stuMin(ivTodayD.sec) : '-'}${(ivA.settings && ivA.settings.hint === false) ? ' · 쓰기 힌트 끔' : ''}</div>
       ${lastV ? `<div class="tiny" style="margin-top:8px">최근 학습 (맞힘/시도)</div><div class="spills">${lastV}</div>` : ''}</div>`, '🔁 불규칙동사'));
   }
   const lastStudy = (() => {
@@ -576,6 +576,7 @@ function stuIvSet(sid) {
     <div class="setgrid">
       <div><label>하루 새 동사 수</label><input type="number" id="ivpd" min="1" max="30" value="${old ? old.per_day : 5}"><div class="row" style="gap:6px;margin-top:4px"><button type="button" class="btn small ghost" data-pd="3">3</button><button type="button" class="btn small ghost" data-pd="5">5</button><button type="button" class="btn small ghost" data-pd="10">10</button></div><div class="tiny">아이 수준에 맞게 정해요 (처음엔 3~5개 권해요)</div></div>
       <div><label>한 번에 복습할 최대 개수</label><input type="number" id="ivrc" min="5" max="50" value="${cfg.review_cap || 15}"></div>
+      <div><label class="pick"><input type="checkbox" id="ivnl" ${cfg.no_daily_limit ? 'checked' : ''}> 하루 제한 없이 이어서 (위 개수씩 끝나면 바로 다음 묶음)</label></div>
       <div><label class="pick"><input type="checkbox" id="ivhint" ${cfg.hint === false ? '' : 'checked'}> 쓰기 연습에 첫 글자 힌트 보이기</label></div>
       <div><label>발음 속도</label><select id="ivrate"><option value="0.7" ${cfg.rate === 0.7 ? 'selected' : ''}>천천히</option><option value="0.85" ${!cfg.rate || cfg.rate === 0.85 ? 'selected' : ''}>보통</option><option value="1" ${cfg.rate === 1 ? 'selected' : ''}>빠르게</option></select></div>
     </div>
@@ -588,7 +589,7 @@ function stuIvSet(sid) {
   m.querySelector('#sv').onclick = async () => {
     sum(); if (!sel.size) return toast('단계를 하나 이상 골라 주세요');
     const row = { student_id: sid, stages: [...sel].sort((a, b) => a - b), per_day: Math.max(1, Math.min(30, +m.querySelector('#ivpd').value || 5)),
-      settings: { hint: m.querySelector('#ivhint').checked, review_cap: Math.max(5, Math.min(50, +m.querySelector('#ivrc').value || 15)), rate: +m.querySelector('#ivrate').value }, updated_at: new Date().toISOString() };
+      settings: { no_daily_limit: m.querySelector('#ivnl').checked, hint: m.querySelector('#ivhint').checked, review_cap: Math.max(5, Math.min(50, +m.querySelector('#ivrc').value || 15)), rate: +m.querySelector('#ivrate').value }, updated_at: new Date().toISOString() };
     const { error } = await S.sb.from('iv_assign').upsert([row], { onConflict: 'student_id' });
     if (error) return toast(errText(error), 4000);
     STU.ivA = (STU.ivA || []).filter(x => x.student_id !== sid).concat([row]); m.remove(); toast('저장했어요'); stuView(sid);

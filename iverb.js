@@ -77,7 +77,9 @@ function ivNewPool() {
   const done = ivLearned(), st = ivStages();
   return IV_ALL.filter(v => st.includes(ivStageOf(v.no)) && !done.has(v.no));
 }
-const ivNewLeft = () => Math.max(0, ivCfg().per_day - ivDay().new_n);
+/* 하루 제한 없음(settings.no_daily_limit): 한 묶음(per_day개)을 끝내면 바로 다음 묶음을 이어서 배운다 */
+const ivNoLimit = () => !!(((IV.asg && IV.asg.settings) || {}).no_daily_limit);
+const ivNewLeft = () => { const pd = ivCfg().per_day, n = ivDay().new_n; return ivNoLimit() ? pd - (n % pd) : Math.max(0, pd - n); };
 
 /* ---------- 스타일 ---------- */
 (function () {
@@ -157,7 +159,7 @@ async function ivHome() {
   const mastered = IV.prog.filter(p => p.box >= 5).length;
   shell(`<p><a href="#" id="back">← 처음으로</a></p><h1>🔁 불규칙동사</h1>
     <div class="card"><h3 style="margin:0 0 8px">오늘의 목표</h3>
-      <div class="goal ${day.new_n >= cfg.per_day || !pool.length ? 'done' : ''}"><span>${day.new_n >= cfg.per_day || !pool.length ? '✓' : '○'}</span> 새 동사 ${Math.min(day.new_n, cfg.per_day)} / ${cfg.per_day}개 배우기</div>
+      ${ivNoLimit() ? `<div class="goal ${pool.length ? '' : 'done'}"><span>${pool.length ? '○' : '✓'}</span> 새 동사 ${day.new_n}개 배웠어요 · ${cfg.per_day}개씩 끝나면 이어서 배워요</div>` : `<div class="goal ${day.new_n >= cfg.per_day || !pool.length ? 'done' : ''}"><span>${day.new_n >= cfg.per_day || !pool.length ? '✓' : '○'}</span> 새 동사 ${Math.min(day.new_n, cfg.per_day)} / ${cfg.per_day}개 배우기</div>`}
       <div class="goal ${due.length ? '' : 'done'}"><span>${due.length ? '○' : '✓'}</span> 복습 다 하기 ${due.length ? `<b style="color:#dc2626">(${due.length}개 남음)</b>` : ''}</div>
       <div class="row" style="gap:8px;margin-top:10px;flex-wrap:wrap">
         ${nNew ? `<button class="btn" id="ivnew" style="flex:1;min-width:150px">✨ 새 동사 ${nNew}개 배우기</button>` : ''}
