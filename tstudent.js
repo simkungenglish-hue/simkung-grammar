@@ -140,6 +140,28 @@ progressRows = function (sid) {
   return `<div class="sgline">${chip('📘 어휘', vA, vB, '유닛', `단어장 ${vN}권 · 통과한 유닛 / 전체`)}${chip('📗 문법', gA, asgs.length, '단원', '완료한 단원 / 배정한 단원')}${chip('📖 본문', pA, pB, '단계', `본문 ${pN}개 · 끝낸 단계 / 전체`)}${chip('🔁 불규칙', iA, iB, '개', '외운 동사 / 배정한 동사')}</div><i data-sid="${sid}" hidden></i>`;
 };
 (function () { const st = document.createElement('style'); st.textContent = '.sgchip.pg{background:linear-gradient(90deg,rgba(79,70,229,.2) var(--p),#f1f5f9 var(--p))}.sgchip.pg.full{background:#dcfce7;color:#166534}.sgchip.pg.zero{background:#f1f5f9}'; document.head.appendChild(st); })();
+/* 학생·리포트 목록 카드에 어휘·본문·불규칙동사 진행도 같이 보여요 */
+(function () {
+  const _ts = tabStudents;
+  const extra = sid => {
+    const it = (name, a, b, un) => { const p = b ? Math.min(100, Math.round(a / b * 100)) : 0, d = b > 0 && a >= b; return `<div class="sg-it"><div class="t" title="${esc(name)}">${esc(name)}</div><div class="s ${d ? 'done' : ''}">${d ? '✓ 모두 완료' : b ? a + '/' + b + un : '시작 전'}</div><div class="bar"><i class="${d ? 'ok' : ''}" style="width:${p}%"></i></div></div>`; };
+    const grp = (t, its, sum) => its.length ? `<div class="sg-bk"><span>${t}</span><small>${sum}</small></div><div class="sg-its">${its.join('')}</div>` : '';
+    let out = '';
+    try { const vi = stuVocabInfo(sid); out += grp('📘 어휘', vi.map(x => it(x.bk.title, x.passed || 0, (x.us || []).length, '유닛')), `${vi.reduce((n, x) => n + (x.passed || 0), 0)}/${vi.reduce((n, x) => n + (x.us || []).length, 0)}유닛`); } catch (e) { /* 없음 */ }
+    try { const pi = stuPassInfo(sid); out += grp('📖 내신 본문', pi.map(x => it(x.p.title, (x.done || []).length, x.total || 0, '단계')), `${pi.length}개`); } catch (e) { /* 없음 */ }
+    const ia = (STU.ivA || []).find(x => x.student_id === sid);
+    if (ia) { const have = new Set((STU.ivP || []).filter(x => x.student_id === sid).map(x => x.verb_no)); let A = 0, B = 0;
+      const its = (ia.stages || []).filter(n => IV_STAGES.includes(n)).sort((x, y) => x - y).map(n => { const vs = ivStageVerbs(n), c = vs.filter(v => have.has(v.no)).length; A += c; B += vs.length; return it(ivStageName(n), c, vs.length, '개'); });
+      out += grp('🔁 불규칙동사', its, `외운 ${A}/${B}개`); }
+    return out;
+  };
+  tabStudents = function () {
+    _ts.apply(this, arguments);
+    if (!STU.loaded && !STU.loading) { STU.loading = true; stuLoad().then(() => { STU.loading = false; if (T.tab === 'students' && !T.view) tabStudents(); }).catch(() => { STU.loading = false; }); return; }
+    if (!STU.loaded) return;
+    document.querySelectorAll('.sg-card').forEach(c => { const b = c.querySelector('[data-s]'); if (b && !c.querySelector('.sg-x')) c.insertAdjacentHTML('beforeend', `<div class="sg-x">${extra(b.dataset.s)}</div>`); });
+  };
+})();
 const _tabToday = tabToday;
 tabToday = function () {
   _tabToday();
