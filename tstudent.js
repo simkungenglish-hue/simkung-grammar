@@ -297,16 +297,26 @@ function stuView(sid) {
   if (ivA) {
     const have = new Set(ivP.map(x => x.verb_no)), dueN = ivP.filter(x => x.due_on <= kst).length, mst = ivP.filter(x => x.box >= 5).length;
     const stg = (ivA.stages || []).filter(n => IV_STAGES.includes(n)).sort((x, y) => x - y);
-    const pills = stg.map(n => { const vs = ivStageVerbs(n), c = vs.filter(v => have.has(v.no)).length, full = c === vs.length;
-      return `<span class="spill ${full ? 'done' : c ? 'now' : ''}">${full ? '✓' : c ? '▶' : '·'} ${ivStageName(n)} <small>${c}/${vs.length}</small></span>`; }).join('');
+    /* 단계마다 한 줄 — 외운·암기·복습·정답률·마지막 학습과, 동사 하나하나의 상태(칩) */
+    let ivNDone = 0, ivNIng = 0;
+    const stageRows = stg.map(n => {
+      const vs = ivStageVerbs(n), ps = vs.map(v => ivP.find(x => x.verb_no === v.no)), got = ps.filter(Boolean);
+      const c = got.length, full = c === vs.length, mastered = got.filter(x => x.box >= 5).length, due = got.filter(x => x.due_on <= kst).length;
+      const ok = got.reduce((s, x) => s + (x.ok || 0), 0), bad = got.reduce((s, x) => s + (x.bad || 0), 0);
+      const last = got.map(x => x.last_at).filter(Boolean).sort().pop();
+      if (full) ivNDone++; else if (c) ivNIng++;
+      const chips = vs.map((v, i) => { const x = ps[i]; if (!x) return `<span class="spill">· ${esc(v.base)}</span>`; const m = x.box >= 5;
+        return `<span class="spill ${m ? 'done' : x.bad > x.ok ? 'bad' : 'now'}" title="맞힘 ${x.ok} · 틀림 ${x.bad}">${m ? '✓' : '▶'} ${esc(v.base)} <small>${x.ok}/${x.ok + x.bad}${m ? ' · 암기' : ''}</small></span>`; }).join('');
+      return `<div class="gu ${full ? 'fin' : c ? 'ing' : ''}"><div class="gu-h"><div class="gu-t"><b>${esc(ivStageName(n))}</b> <span class="tiny">${vs[0].no}~${vs[vs.length - 1].no}번</span>
+        <div class="tiny">외운 ${c}/${vs.length} · 암기 ${mastered} · 복습 ${due}개${ok + bad ? ' · 정답률 ' + Math.round(ok / (ok + bad) * 100) + '%' : ''}${last ? ' · 마지막 ' + fmtDT(last) : ''}</div></div></div>
+        <div class="spills">${chips}</div></div>`; }).join('');
     const days7 = new Set(ivD.filter(x => x.day >= addDays(kst, -6) && (x.new_n || x.rev_n)).map(x => x.day)).size;
-    const lastV = ivP.slice().sort((x, y) => String(y.last_at).localeCompare(String(x.last_at))).slice(0, 8).map(x => { const v = IV_BY.get(x.verb_no); return v ? `<span class="spill ${x.bad > x.ok ? 'bad' : ''}" title="맞힘 ${x.ok} · 틀림 ${x.bad}">${esc(v.base)} <small>${x.ok}/${x.ok + x.bad}</small></span>` : ''; }).join('');
     const ivTot = stg.reduce((n, k) => n + ivStageVerbs(k).length, 0), ivHave = stg.reduce((n, k) => n + ivStageVerbs(k).filter(v => have.has(v.no)).length, 0);
-    ivHtml = (lcard('🔁', '불규칙동사', `<em class="f">외운 ${ivHave}/${ivTot}개</em><em class="i">암기 ${mst}</em><em class="n">복습 ${dueN}</em><span class="tiny">하루 ${ivA.per_day}개 · ${stg.length}개 단계 · 최근 7일 ${days7}일</span>`, ivTot ? ivHave / ivTot * 100 : 0, `<div class="gu"><div class="row between" style="flex-wrap:wrap;gap:6px"><div><h3>하루 ${ivA.per_day}개 · ${stg.length}개 단계 배정</h3><span class="tiny">외운 동사 ${have.size}개 · 완전 암기 ${mst}개 · 밀린 복습 ${dueN}개 · 최근 7일 ${days7}일 학습</span></div>
+    ivHtml = (lcard('🔁', '불규칙동사', `<em class="f">✓ 완료 ${ivNDone}</em><em class="i">▶ 진행 ${ivNIng}</em><em class="n">· 시작 전 ${stg.length - ivNDone - ivNIng}</em><span class="tiny">외운 ${ivHave}/${ivTot}개 · 암기 ${mst} · 복습 ${dueN} · 하루 ${ivA.per_day}개 · 최근 7일 ${days7}일</span>`, ivTot ? ivHave / ivTot * 100 : 0, `<div class="ivbody"><div class="row between" style="flex-wrap:wrap;gap:6px;padding:10px 12px"><div><h3>하루 ${ivA.per_day}개 · ${stg.length}개 단계 배정</h3><span class="tiny">외운 동사 ${have.size}개 · 완전 암기 ${mst}개 · 밀린 복습 ${dueN}개 · 최근 7일 ${days7}일 학습</span></div>
       <div class="row" style="gap:6px">${(() => { const nx = IV_STAGES.find(n => !stg.includes(n) && n > (stg.length ? stg[stg.length - 1] : 0)); return nx == null ? '' : `<button class="btn small" id="ivnext" data-nx="${nx}" style="${ivTot && ivHave === ivTot ? 'background:#16a34a;border-color:#16a34a;color:#fff' : ''}">${ivStageName(nx)} 추가 ▶</button>`; })()}<button class="btn small ghost" id="ivreset">처음부터</button><button class="btn small ghost" id="ivdel" style="color:#dc2626">배정 해제</button></div></div>
-      <div class="spills">${pills || '<span class="tiny">배정된 단계가 없어요</span>'}</div>
+      ${stageRows || '<div class="spills"><span class="tiny">배정된 단계가 없어요</span></div>'}
       <div class="stu-set">${(ivA.settings && ivA.settings.no_daily_limit) ? `오늘 새 ${ivTodayD.new_n}개 (${ivA.per_day}개씩 · 하루 제한 없음)` : `오늘 새 ${ivTodayD.new_n}/${ivA.per_day}개`} · 복습 ${ivTodayD.rev_n}개 · 정답 ${ivTodayD.ok}/${ivTodayD.total} · 시간 ${ivTodayD.sec ? stuMin(ivTodayD.sec) : '-'}${(ivA.settings && ivA.settings.hint === false) ? ' · 쓰기 힌트 끔' : ''}</div>
-      ${lastV ? `<div class="tiny" style="margin-top:8px">최근 학습 (맞힘/시도)</div><div class="spills">${lastV}</div>` : ''}</div>`, '🔁 불규칙동사'));
+      </div>`, '🔁 불규칙동사'));
   }
   const lastStudy = (() => {
     const c = [];
