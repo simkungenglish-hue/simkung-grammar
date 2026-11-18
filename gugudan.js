@@ -157,7 +157,7 @@ function ggWrapHome() {
     studentHome = function () { _sh.apply(this, arguments); ggInjectCard(); };
     studentHome.__gg = true; if (_sh.__iv) studentHome.__iv = true;
   }
-  ggTeacherHooks();
+  ggTeacherHooks(); ggBankHook();
 }
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ggWrapHome); else ggWrapHome();
 
@@ -492,4 +492,36 @@ function ggTeacherHooks() {
     };
     tabStudents.__gg = true;
   }
+}
+
+/* ---------- 문항 관리 책장에 영어구구단 보여 주기 (내용 보기 전용) ---------- */
+function ggTBank() {
+  const say = t => { if (typeof TTS !== 'undefined') TTS.speak(ggSayText(t), 0.85); };
+  $('#tb').innerHTML = `<div class="card"><div class="row between"><h2 style="margin:0">문항 관리</h2></div>
+      <div class="notice" style="margin-top:10px">영어구구단은 1~${GG_MAX}단이 모두 <b>공개</b>돼 있어요. 학생에게는 원장님이 배정한 단만 보여요. (학생 상세 → 「+ 영어구구단」)</div>
+      <div class="crumbs"><a href="#" id="ggbk">문항 관리</a> <span class="muted">›</span> 영어구구단</div></div>
+    <div class="card"><div class="grid2">${GG_DANS.map(d => `<div class="qcard" style="cursor:default"><div class="row between"><div class="qt">${d.n}단 <span class="tiny">${esc(d.ko)}</span></div><button class="btn small ghost" data-ggall="${d.n}">▶ 듣기</button></div>
+      <div style="margin-top:6px;line-height:1.7">${d.lines.map(t => `<div>${esc(t)}</div>`).join('')}</div></div>`).join('')}</div></div>`;
+  $('#ggbk').onclick = e => { e.preventDefault(); if ('speechSynthesis' in window) speechSynthesis.cancel(); tabQuestions(); };
+  document.querySelectorAll('[data-ggall]').forEach(b => b.onclick = () => {
+    if (!('speechSynthesis' in window)) return; speechSynthesis.cancel();
+    ggDanOf(+b.dataset.ggall).lines.forEach(t => { const u = new SpeechSynthesisUtterance(ggSayText(t)); u.lang = 'en-US'; u.rate = 0.85; if (typeof TTS !== 'undefined' && (TTS.voice || TTS.pick())) u.voice = TTS.voice; speechSynthesis.speak(u); });
+  });
+}
+function ggBankHook() {
+  if (typeof tabQuestions !== 'function' || tabQuestions.__gg) return;
+  const _tq = tabQuestions;
+  tabQuestions = async function () {
+    const r = await _tq.apply(this, arguments);
+    try {
+      if (QB || QU || T.tab !== 'questions') return r;   // 책장 첫 화면에서만
+      const cards = document.querySelectorAll('#tb > .card'), host = cards[cards.length - 1];
+      if (host && !document.getElementById('ggbank')) {
+        host.insertAdjacentHTML('beforeend', `<h3 style="margin-top:14px">영어구구단</h3><div class="grid2"><div class="qcard" id="ggbank"><div class="qt">🎤 1~${GG_MAX}단</div><div class="tiny">단 ${GG_MAX}개 · 문장 ${GG_DANS.reduce((n, d) => n + d.lines.length, 0)}개 · 외워서 녹음 제출</div><div style="margin-top:6px"><span class="badge ok">전부 공개</span></div></div></div>`);
+        document.getElementById('ggbank').onclick = ggTBank;
+      }
+    } catch (e) { /* 표시가 없어도 화면은 보여요 */ }
+    return r;
+  };
+  tabQuestions.__gg = true;
 }
