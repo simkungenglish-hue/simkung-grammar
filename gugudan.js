@@ -517,7 +517,7 @@ function ggBankHook() {
       if (QB || QU || T.tab !== 'questions') return r;   // 책장 첫 화면에서만
       const cards = document.querySelectorAll('#tb > .card'), host = cards[cards.length - 1];
       if (host && !document.getElementById('ggbank')) {
-        host.insertAdjacentHTML('beforeend', `<h3 style="margin-top:14px">영어구구단</h3><div class="grid2"><div class="qcard" id="ggbank"><div class="qt">🎤 1~${GG_MAX}단</div><div class="tiny">단 ${GG_MAX}개 · 문장 ${GG_DANS.reduce((n, d) => n + d.lines.length, 0)}개 · 외워서 녹음 제출</div><div style="margin-top:6px"><span class="badge ok">전부 공개</span></div></div></div>`);
+        host.insertAdjacentHTML('beforeend', `<h3 style="margin-top:14px">영어구구단</h3><div class="grid2 qroot"><div class="qcard" id="ggbank"><div class="qt">🎤 1~${GG_MAX}단</div><div class="tiny">단 ${GG_MAX}개 · 문장 ${GG_DANS.reduce((n, d) => n + d.lines.length, 0)}개 · 외워서 녹음 제출</div><div style="margin-top:6px"><span class="badge ok">전부 공개</span></div></div></div>`);
         document.getElementById('ggbank').onclick = ggTBank;
       }
     } catch (e) { /* 표시가 없어도 화면은 보여요 */ }

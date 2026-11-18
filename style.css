@@ -203,3 +203,11 @@ details.asg summary { cursor: pointer; padding: 4px 0; }
 
 .cvs{width:26px;height:36px;object-fit:cover;border-radius:3px;vertical-align:middle;margin-right:6px;box-shadow:0 1px 3px rgba(0,0,0,.25)}
 .cvs.big{width:44px;height:60px;margin-right:10px}
+
+/* 문항 관리 첫 화면: 학년(1·2·3)이 한 줄에 나오는 작은 격자 */
+.grid2.qroot { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.grid2.qroot .qcard { padding: 9px 10px; border-radius: 11px; }
+.grid2.qroot .qcard .qt { font-size: .95rem; }
+.grid2.qroot .qcard .tiny { font-size: .72rem; line-height: 1.35; }
+.grid2.qroot .qcard .badge { font-size: .68rem; padding: 1px 7px; }
+@media (max-width: 420px) { .grid2.qroot .qcard .tiny { font-size: .66rem; } }

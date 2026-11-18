@@ -342,7 +342,7 @@ async function tabQuestions() {
     const books = [...new Set(T.units.map(bookOf))].sort((x, y) => bookRank(x) - bookRank(y) || x.localeCompare(y));
     const pubs = new Map();
     books.forEach(b => { const sb = splitBook(b); if (!pubs.has(sb.pub)) pubs.set(sb.pub, []); pubs.get(sb.pub).push([b, sb.grade]); });
-    body = [...pubs].map(([pub, list]) => `<h3 style="margin-top:14px">${esc(pub)}</h3><div class="grid2">${list.sort((x, y) => gradeRank(x[1]) - gradeRank(y[1]) || x[1].localeCompare(y[1])).map(([b, g]) => {
+    body = [...pubs].map(([pub, list]) => `<h3 style="margin-top:14px">${esc(pub)}</h3><div class="grid2 qroot">${list.sort((x, y) => gradeRank(x[1]) - gradeRank(y[1]) || x[1].localeCompare(y[1])).map(([b, g]) => {
       const us = unitsOf(b), ids = new Set(us.map(x => x.id)), st = qStat(T.questions.filter(q => ids.has(q.unit_id)));
       return `<div class="qcard" data-book="${esc(b)}"><div class="qt">${esc(g || pub)}</div><div class="tiny">단원 ${us.length}개 · 문제 ${st.n}개</div><div style="margin-top:6px">${statBadge(st)}</div></div>`;
     }).join('')}</div>`).join('') || '<p class="muted">아직 단원이 없어요.</p>';
