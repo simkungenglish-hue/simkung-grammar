@@ -9,13 +9,17 @@ const TAB_ICON = {"naesin": "<path d=\"M4 4h10a4 4 0 014 4v12H8a4 4 0 01-4-4z\"/
 const tabIcon = k => `<svg class="ti" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${TAB_ICON[k] || ''}</svg>`;
 const TABS = [['today', '오늘 현황'], ['vocab', '어휘'], ['naesin', '내신 본문'], ['review', '채점 대기'], ['students', '학생·리포트'], ['questions', '문항 관리'], ['accounts', '학생 관리'], ['ai', 'AI 사용·설정'], ['settings', '설정·내보내기']];
 
-async function loadTeacher() {
+/* light=true: 문제·단원·학생·설정은 이미 받아 둔 것을 그대로 쓰고, 자주 바뀌는 풀이 기록·배정·메모만 새로 받아요 (데이터 송신량 절약).
+   문제·단원·학생을 고친 뒤에는 loadTeacher()를 그대로 불러 전부 새로 받아요. */
+async function loadTeacher(light) {
   const sb = S.sb;
+  if (light && !T.fullLoaded) light = false;   // 처음 한 번은 반드시 전부 받아요
+  const skip = Promise.resolve(null);
   const [st, as, un, qs, at, nt, cv, kd, ac, bs] = await Promise.all([
-    sb.from('profiles').select('*').eq('role', 'student').order('name'),
+    light ? skip : sb.from('profiles').select('*').eq('role', 'student').order('name'),
     fetchAll(() => sb.from('assignments').select('*').order('created_at')),
-    sb.from('units').select('*').order('code'),
-    (async () => { // 서버가 한 번에 1000행까지만 주므로 나눠서 모두 불러와요
+    light ? skip : sb.from('units').select('*').order('code'),
+    light ? skip : (async () => { // 서버가 한 번에 1000행까지만 주므로 나눠서 모두 불러와요
       let all = [], from = 0;
       for (;;) {
         const r = await sb.from('questions').select('*').order('unit_id').order('stage').order('ord').range(from, from + 999);
@@ -26,18 +30,21 @@ async function loadTeacher() {
     })(),
     fetchAll(() => sb.from('attempts').select('*').order('submitted_at', { ascending: false })),   // 서버가 1000행에서 자르므로 나눠서 모두 불러와요
     sb.from('teacher_notes').select('*').order('created_at', { ascending: false }),
-    sb.from('book_covers').select('*'),
-    sb.from('app_settings').select('value').eq('key', 'book_kinds').maybeSingle(),
-    sb.from('app_settings').select('value').eq('key', 'ai_config').maybeSingle(),
-    sb.from('app_settings').select('value').eq('key', 'book_students').maybeSingle()
+    light ? skip : sb.from('book_covers').select('*'),
+    light ? skip : sb.from('app_settings').select('value').eq('key', 'book_kinds').maybeSingle(),
+    light ? skip : sb.from('app_settings').select('value').eq('key', 'ai_config').maybeSingle(),
+    light ? skip : sb.from('app_settings').select('value').eq('key', 'book_students').maybeSingle()
   ]);
-  const err = st.error || as.error || un.error || qs.error || at.error || nt.error;
+  const err = (st && st.error) || as.error || (un && un.error) || (qs && qs.error) || at.error || nt.error;
   if (err) throw err;
-  T.students = st.data; T.asg = as.data; T.units = un.data; T.questions = qs.data; T.attempts = at.data; T.notes = nt.data;
-  T.covers = Object.fromEntries(((cv && cv.data) || []).map(r => [r.school_book, r.cover]));   // 표 없으면 빈 값
-  T.bookStu = (bs && bs.data && bs.data.value) || {};   // 교재별로 원장님이 넣어 둔 학생
-  T.kinds = (kd && kd.data && kd.data.value) || {};   // 교재별 분류(내신대비/일반교재)
-  T.autoFinal = !!(ac && ac.data && ac.data.value && ac.data.value.enabled && ac.data.value.auto_final);
+  T.asg = as.data; T.attempts = at.data; T.notes = nt.data;
+  if (!light) {
+    T.students = st.data; T.units = un.data; T.questions = qs.data; T.fullLoaded = true;
+    T.covers = Object.fromEntries(((cv && cv.data) || []).map(r => [r.school_book, r.cover]));   // 표 없으면 빈 값
+    T.bookStu = (bs && bs.data && bs.data.value) || {};   // 교재별로 원장님이 넣어 둔 학생
+    T.kinds = (kd && kd.data && kd.data.value) || {};   // 교재별 분류(내신대비/일반교재)
+    T.autoFinal = !!(ac && ac.data && ac.data.value && ac.data.value.enabled && ac.data.value.auto_final);
+  }
   T.lastLoad = new Date();
   indexT();
 }
@@ -156,7 +163,11 @@ function subscribeRealtime() {
     .on('postgres_changes', { event: '*', schema: 'public', table: 'attempts' }, p => { try { if (p && (p.eventType === 'INSERT' || (p.eventType === 'UPDATE' && p.new && p.new.appeal_at))) alertOnReview(p.new); } catch (e) { /* 알림 실패는 무시 */ } refreshSoon(); })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'assignments' }, () => refreshSoon())
     .subscribe(status => setLive(status === 'SUBSCRIBED'));
-  T.poll = setInterval(refreshSoon, 30000);   // 실시간이 끊겨도 30초마다 새로 읽어요
+  T.poll = setInterval(() => {   // 실시간이 끊겼을 때만 30초마다, 연결돼 있으면 5분마다 새로 읽어요 (숨겨진 탭은 쉬어요)
+    if (document.hidden) return;
+    if (T.live && T.lastLoad && Date.now() - T.lastLoad.getTime() < 300000) return;
+    refreshSoon();
+  }, 30000);
 }
 function refreshSoon() {
   clearTimeout(T.timer);
@@ -164,7 +175,7 @@ function refreshSoon() {
     if (document.querySelector('.modal-bg') || ['vocab', 'naesin', 'assign', 'questions', 'videos', 'accounts', 'ai', 'settings'].includes(T.tab)) return;
     if (T.tab === 'students' && T.view) return;          // 리포트·상세를 보는 중이면 방해하지 않아요
     if (document.activeElement && ['TEXTAREA', 'INPUT'].includes(document.activeElement.tagName)) return;
-    try { await loadTeacher(); drawTeacher(); } catch (e) { /* 다음 번에 다시 시도 */ }
+    try { await loadTeacher(true); drawTeacher(); } catch (e) { /* 다음 번에 다시 시도 */ }
   }, 600);
 }
 function modal(html) {
@@ -293,7 +304,7 @@ function gradeModal(attemptId) {
     const errs = $('#ge').value.split(',').map(x => x.trim()).filter(Boolean);
     const { error } = await S.sb.rpc('teacher_grade', { p_attempt: a.id, p_score: sc, p_correct: sc >= max, p_feedback: $('#gf').value.trim(), p_errors: errs });
     if (error) return toast(errText(error), 4000);
-    m.remove(); toast('저장했어요'); await loadTeacher(); drawTeacher();
+    m.remove(); toast('저장했어요'); await loadTeacher(true); drawTeacher();
   };
 }
 
@@ -470,7 +481,7 @@ function tabAssign() {
     if (!rows.length) return toast('이미 모두 배정되어 있어요');
     const { error } = await S.sb.from('assignments').upsert(rows, { onConflict: 'student_id,unit_id' });
     if (error) return toast(errText(error), 4000);
-    toast(`${rows.length}건 배정했어요${skipped ? ` (이미 배정된 ${skipped}건 제외)` : ''}`); await loadTeacher(); tabAssign();
+    toast(`${rows.length}건 배정했어요${skipped ? ` (이미 배정된 ${skipped}건 제외)` : ''}`); await loadTeacher(true); tabAssign();
   };
   document.querySelectorAll('[data-round]').forEach(b => b.onclick = () => relearnModal(b.dataset.round));
   document.querySelectorAll('[data-stg]').forEach(b => b.onclick = () => stageModal(b.dataset.stg));
@@ -479,7 +490,7 @@ function tabAssign() {
     if (!confirm('정말 삭제할까요? 되돌릴 수 없어요.')) return;
     const { error } = await S.sb.from('assignments').delete().eq('id', b.dataset.del);
     if (error) return toast(errText(error));
-    await loadTeacher(); drawTeacher();
+    await loadTeacher(true); drawTeacher();
   });
   naesinMatrix(approvedN, mode);
 }
@@ -564,7 +575,7 @@ function naesinMatrix(approvedN, mode) {
     $('#asave').disabled = true;
     const { error } = await S.sb.from('assignments').upsert(rows, { onConflict: 'student_id,unit_id' });
     if (error) { $('#asave').disabled = false; return toast(errText(error), 4000); }
-    toast(`${rows.length}건 배정했어요`); M.sel.clear(); await loadTeacher(); tabAssign();
+    toast(`${rows.length}건 배정했어요`); M.sel.clear(); await loadTeacher(true); tabAssign();
   };
   draw();
 }

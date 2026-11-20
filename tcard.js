@@ -63,7 +63,7 @@ function tcCmp(a, b) {
   };
 })();
 
-async function tcRefresh() { await loadTeacher(); drawTeacher(); }
+async function tcRefresh() { await loadTeacher(true); drawTeacher(); }
 
 async function asgDelete(aid) {
   const a = T.asg.find(x => x.id === aid); if (!a) return;

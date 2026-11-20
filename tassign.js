@@ -37,7 +37,7 @@ function stageModal(aid) {
     delete settings.focus_qids; delete settings.focus_round;
     const { error } = await S.sb.from('assignments').update({ settings }).eq('id', a.id);
     if (error) return toast(errText(error), 4000);
-    bg.remove(); toast('단계를 바꿨어요'); await loadTeacher(); tabAssign();
+    bg.remove(); toast('단계를 바꿨어요'); await loadTeacher(true); tabAssign();
   };
 }
 function wrongQids(a) {
@@ -70,6 +70,6 @@ function relearnModal(aid) {
     if (up.error) { b.disabled = false; return toast(errText(up.error), 4000); }
     const { error } = await S.sb.rpc('start_new_round', { p_assignment: a.id });
     if (error) { b.disabled = false; return toast(errText(error), 4000); }
-    bg.remove(); toast(`${nx}회차를 시작했어요${mode === 'wrong' ? ' (틀린 ' + wq.length + '문항)' : ''}`); await loadTeacher(); tabAssign();
+    bg.remove(); toast(`${nx}회차를 시작했어요${mode === 'wrong' ? ' (틀린 ' + wq.length + '문항)' : ''}`); await loadTeacher(true); tabAssign();
   };
 }

@@ -59,3 +59,23 @@ test('1000행 이하일 때는 한 번만 요청한다', async () => {
   await run(ctx, 'S.sb = __sb; S.user = { id: "s1" }; loadStudent()');
   assert.strictEqual(fake.calls.filter(c => c.table === 'attempts').length, 1);
 });
+
+test('원장님 화면: 가벼운 새로고침은 문제·단원·학생을 다시 받지 않고, 처음엔 전부 받는다', async () => {
+  const ctx = loadApp();
+  const t = tables(5);
+  t.questions = [{ id: 'q1', unit_id: 'u1', stage: 'basic', ord: 1 }];
+  const fake = createFake(t);
+  ctx.__sb = fake;
+  await run(ctx, 'S.sb = __sb; S.user = { id: "t1" }; loadTeacher(true)');   // 처음엔 light여도 전부 받아야 해요
+  const n = name => fake.calls.filter(c => c.table === name).length;
+  assert.strictEqual(n('questions'), 1);
+  assert.strictEqual(run(ctx, 'T.questions.length'), 1);
+  await run(ctx, 'loadTeacher(true)');
+  assert.strictEqual(n('questions'), 1, '가벼운 새로고침은 문제를 다시 받지 않아요');
+  assert.strictEqual(n('units'), 1);
+  assert.strictEqual(n('profiles'), 1);
+  assert.ok(n('attempts') >= 2, '풀이 기록은 새로 받아요');
+  assert.strictEqual(run(ctx, 'T.questions.length'), 1, '받아 둔 문제는 그대로 남아요');
+  await run(ctx, 'loadTeacher()');
+  assert.strictEqual(n('questions'), 2, '그냥 부르면 전부 다시 받아요');
+});

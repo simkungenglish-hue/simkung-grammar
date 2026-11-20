@@ -195,7 +195,7 @@ async function stuOpen(sid) {
   if (T.stuSid === sid) stuView(sid);
   window.scrollTo(0, 0);
 }
-async function stuReload(sid) { try { await loadTeacher(); await stuLoad(true); } catch (e) { toast(errText(e), 4000); } if (T.stuSid === sid) drawTeacher(); }
+async function stuReload(sid) { try { await loadTeacher(true); await stuLoad(true); } catch (e) { toast(errText(e), 4000); } if (T.stuSid === sid) drawTeacher(); }
 
 /* ---------- ② 학생 화면 ---------- */
 function stuView(sid) {

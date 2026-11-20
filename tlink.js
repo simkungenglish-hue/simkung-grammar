@@ -104,6 +104,6 @@ async function linkModal(preBook, preCh) {
     const { error } = await S.sb.from('assignments').insert(rows);
     if (error) return toast(errText(error), 4000);
     toast(`${rows.length}건 배정했어요${skip ? ` (이미 배정된 ${skip}건 제외)` : ''}`);
-    bg.remove(); await loadTeacher(); drawTeacher();
+    bg.remove(); await loadTeacher(true); drawTeacher();
   };
 }
