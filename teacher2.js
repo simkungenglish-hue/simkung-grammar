@@ -109,7 +109,7 @@ function studentDetail(sid) {
     <div class="card"><h3>최근 풀이 기록 (최대 150건)</h3><div class="tablewrap"><table><thead><tr><th>시각</th><th>단계</th><th>문제</th><th>학생 답</th><th>결과</th><th>점수</th><th>도움</th><th>시간</th><th></th></tr></thead><tbody>
     ${at.map(a => { const q = T.qById[a.question_id] || {}; return `<tr><td>${fmtDT(a.submitted_at)}</td><td>${STAGE_NAME[a.stage] || a.stage}<div class="tiny">${(a.round || 1) > 1 ? a.round + '회차 · ' : ''}${a.attempt_no}번째</div></td><td>${esc(q.prompt)}</td><td>${esc(a.answer)}</td><td>${statusLabel(a)}</td><td>${a.score ?? '-'}/${a.max_score}${a.graded_by === 'teacher' ? '<div class="tiny">원장님</div>' : ''}</td><td>${helpLabel(a.help_used)}</td><td>${a.time_spent_sec != null ? fmtDur(a.time_spent_sec) : '<span class="muted">-</span>'}</td><td><button class="btn small ghost" data-g="${a.id}">수정</button></td></tr>`; }).join('') || '<tr><td colspan="9" class="muted">아직 풀이 기록이 없어요</td></tr>'}</tbody></table></div></div>`;
   $('#bk').onclick = e => { e.preventDefault(); tabStudents(); };
-  $('#rep').onclick = () => reportView(sid);
+  $('#rep').onclick = async () => { try { if (typeof stuLoad === 'function') await stuLoad(); } catch (e) { /* 어휘·본문·불규칙 자료가 없어도 리포트는 만들어요 */ } reportView(sid); };
   $('#wn').onclick = () => wrongView(sid);
   $('#csv').onclick = () => exportCsv(T.attempts.filter(a => a.student_id === sid), `풀이기록_${s.name}.csv`);
   $('#ps').onclick = async () => {
@@ -186,8 +186,10 @@ function buildSnap(sid, days = 0, rnd = 0) {
   const perDay = new Map();
   at.forEach(a => { const d = dayKey(a.submitted_at); if (!perDay.has(d)) perDay.set(d, { sec: 0, n: 0, sub: 0 }); const o = perDay.get(d); o.sub++; if (a.time_spent_sec != null) { o.sec += a.time_spent_sec; o.n++; } });
   const daily = [...perDay].sort((x, y) => x[0].localeCompare(y[0])).slice(-14).map(([d, o]) => ({ d, sec: o.n ? o.sec : null, sub: o.sub }));
+  let all = null;   // 문법 말고 어휘·본문·불규칙동사까지 같은 기간으로 모은 요약
+  try { if (typeof buildAllSnap === 'function') all = buildAllSnap(sid, days); } catch (e) { all = null; }
   return {
-    v: 1, name: s.name, grade: s.grade || '', units, file: fileName.replace(bad, ' ').replace(/\s+/g, ' ').trim(), made: new Date().toLocaleDateString('ko-KR'),
+    v: 1, all, name: s.name, grade: s.grade || '', units, file: fileName.replace(bad, ' ').replace(/\s+/g, ' ').trim(), made: new Date().toLocaleDateString('ko-KR'),
     range: (days ? `최근 ${days}일` : '전체 기간') + (rnd ? ` · ${rnd}회차만` : (allRounds.length > 1 ? ' · 모든 회차 합산' : '')),
     summary: { solved: qList.length, submissions: at.length, days: new Set(at.map(a => dayKey(a.submitted_at))).size, enough, first_pct: enough ? pct(firstOk, graded.length) : null, first_ok: firstOk, first_n: graded.length,
       pending: at.filter(a => a.status === 'needs_review').length, time_sec: tm.sec, time_n: tm.n, time_total: tm.total },
@@ -205,7 +207,9 @@ function aiStats(d) {
     weak: t.slice().sort((a, b) => a.pct - b.pct).slice(0, 5).map(x => ({ tag: x.tag, pct: x.pct, n: x.n })),
     strong: t.filter(x => x.pct >= 80).sort((a, b) => b.pct - a.pct).slice(0, 3).map(x => ({ tag: x.tag, pct: x.pct, n: x.n })),
     errors: d.errors, rounds: d.rounds.map(x => ({ r: x.r, pct: x.pct, n: x.n })),
-    units: (d.units || []).slice(0, 8).map(u => ({ name: u.book + ' ' + u.name, n: u.n, pct: u.pct })) };
+    units: [...(d.units || []).slice(0, 5).map(u => ({ name: u.book + ' ' + u.name, n: u.n, pct: u.pct })),
+      ...(d.all ? [...d.all.vocab.rows.slice(0, 2).map(v => ({ name: '어휘 ' + v.book + ' ' + v.name, n: v.steps, pct: v.pct })), ...d.all.pass.rows.slice(0, 1).map(p => ({ name: '내신 본문 ' + p.name, n: p.steps, pct: p.pct })),
+        ...(d.all.iv && d.all.iv.act ? [{ name: '불규칙동사 새 ' + d.all.iv.new_n + '개·복습 ' + d.all.iv.rev_n + '개', n: d.all.iv.new_n + d.all.iv.rev_n, pct: d.all.iv.pct }] : [])] : [])].slice(0, 8) };
 }
 function shareUrl(tok) { return location.href.replace(/[#?].*$/, '').replace(/[^/]*$/, '') + 'report.html?t=' + tok; }
 async function copyText(txt, inp) {

@@ -83,6 +83,7 @@
     });
     return days;
   }
+  window.stuCollect = collect;   // 성장 리포트(report-all.js)에서도 같은 계산을 써요
 
   function dayDetail(o, k) {
     if (!o) return '<p class="tiny">이 날은 학습 기록이 없어요.</p>';

@@ -84,7 +84,7 @@ const RPT = (() => {
       <table class="rt"><thead><tr><th>회차</th><th>채점된 문제</th><th>처음 정답률</th><th>학습 시간</th></tr></thead><tbody>${d.rounds.map(r => `<tr><td>${r.r}회차</td><td>${r.n}문제</td><td>${r.pct == null ? '평가 자료 부족' : r.pct + '%'}</td><td>${r.tn ? durTxt(r.sec) : '기록 없음'}</td></tr>`).join('')}</tbody></table>
       <p class="tiny">다시 학습할 때마다 같은 단원을 새 회차로 풀어요. 이전 회차 기록은 그대로 보존돼 있어 변화를 비교할 수 있어요.</p></section>` : '';
 
-    const daily = d.daily && d.daily.some(x => x.sec != null) ? `<section class="rsec"><h2>날짜별 학습 시간</h2>${barV(d.daily.map(x => ({ label: x.d.slice(5).replace('-', '/'), v: x.sec == null ? null : Math.round(x.sec / 60 * 10) / 10, text: x.sec == null ? '' : durTxt(x.sec) })), { h: 90, color: C.main })}
+    const daily = d.daily && d.daily.some(x => x.sec != null) ? `<section class="rsec"><h2>${d.all ? '문법 ' : ''}날짜별 학습 시간</h2>${barV(d.daily.map(x => ({ label: x.d.slice(5).replace('-', '/'), v: x.sec == null ? null : Math.round(x.sec / 60 * 10) / 10, text: x.sec == null ? '' : durTxt(x.sec) })), { h: 90, color: C.main })}
       <p class="tiny">최근 공부한 날 ${d.daily.length}일까지 표시해요. 시간 기록이 없는 날은 막대가 없어요.</p></section>` : '';
 
     const errs = d.errors.length ? `<section class="rsec"><h2>자주 나온 오류 유형</h2>${barH(d.errors.map(([n, c]) => ({ label: n, a: Math.round(c / Math.max(...d.errors.map(e => e[1])) * 100), t: c + '회' })), { w: 200, narrow: true })}
@@ -93,16 +93,18 @@ const RPT = (() => {
     const md = x => x ? x.slice(5).replace('-', '/') : '';
     const unitsSec = d.units && d.units.length ? `<section class="runit"><div class="ru-h"><span>이번에 학습한 내용</span><small>교재 · 단원 · 학습명</small></div>${d.units.map(u =>
       `<div class="ru-row"><span class="ru-book">${E(u.book)}</span><b class="ru-name">${E(u.name)}</b><span class="ru-stat">${u.n}문제 · 처음 정답률 ${u.pct == null ? '자료 부족' : u.pct + '%'} · ${u.first === u.last ? md(u.first) : md(u.first) + '~' + md(u.last)}</span></div>`).join('')}</section>` : '';
-    return `<div class="report a4">
-      <div class="rhead"><div class="rbrand">스텔라의 심쿵영어 · 문법 학습 분석 리포트</div><h1>${E(d.name)} 학생 성장 리포트</h1>
-        <div class="rmeta"><span><i>학년</i>${E(d.grade || '-')}</span><span><i>분석 기간</i>${E(d.range)}</span><span><i>작성일</i>${E(d.made)}</span></div></div>
-      ${unitsSec}
-      ${kpis}
-      <div class="rgrid"><section class="rsec"><h2>1. 한눈에 보기</h2>${table}</section>
+    const X = d.all && window.RPT_X ? window.RPT_X.parts(d) : null;   // 어휘·본문·불규칙동사까지 있는 리포트
+    const gram = `<div class="rgrid"><section class="rsec"><h2>1. 한눈에 보기</h2>${table}</section>
       <section class="rsec"><h2>2. 어떻게 맞혔나요? <span class="tiny">(최종 결과 기준)</span></h2>${how}</section></div>
       <div class="rgrid"><section class="rsec"><h2>3. 단계별 결과</h2>${stages}</section>
       <section class="rsec"><h2>4. 개념별 살펴보기</h2>${tags}</section></div>
-      <div class="rgrid">${rounds}${daily}</div>${errs}
+      <div class="rgrid">${rounds}${daily}</div>${errs}`;
+    return `<div class="report a4">
+      <div class="rhead"><div class="rbrand">스텔라의 심쿵영어 · ${X ? '학습' : '문법 학습'} 분석 리포트</div><h1>${E(d.name)} 학생 성장 리포트</h1>
+        <div class="rmeta"><span><i>학년</i>${E(d.grade || '-')}</span><span><i>분석 기간</i>${E(d.range)}</span><span><i>작성일</i>${E(d.made)}</span></div></div>
+      ${X ? X.units : unitsSec}
+      ${X ? X.kpis + X.overview : kpis}
+      ${X ? (sm.submissions ? X.gramBanner + gram : '') + X.vocab + X.pass + X.iv : gram}
       <section class="rsec rcomwrap"><h2>선생님 종합 코멘트</h2><div id="cmtP" class="rcomment">${commentHtml(d.comment)}</div></section>
       <section class="rsec"><h2>측정 기준 안내</h2>
       <p class="tiny">· 모든 수치는 서버에 저장된 풀이 기록에서만 계산했어요. 기록이 부족한 항목은 “평가 자료 부족”으로 표시했어요.<br>
