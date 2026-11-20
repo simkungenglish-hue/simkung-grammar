@@ -305,10 +305,11 @@ function stuView(sid) {
       const ok = got.reduce((s, x) => s + (x.ok || 0), 0), bad = got.reduce((s, x) => s + (x.bad || 0), 0);
       const last = got.map(x => x.last_at).filter(Boolean).sort().pop();
       if (full) ivNDone++; else if (c) ivNIng++;
-      const chips = vs.map((v, i) => { const x = ps[i]; if (!x) return `<span class="spill">· ${esc(v.base)}</span>`; const m = x.box >= 5;
+      const weak = got.filter(x => !x.relearn && x.bad > x.ok), rlN = got.filter(x => !x.relearn).length;   // 틀림이 맞힘보다 많은 동사
+        const chips = vs.map((v, i) => { const x = ps[i]; if (!x) return `<span class="spill">· ${esc(v.base)}</span>`; if (x.relearn) return `<span class="spill" title="다시 배울 동사 (기록은 그대로)">↻ ${esc(v.base)} <small>${x.ok}/${x.ok + x.bad}</small></span>`; const m = x.box >= 5;
         return `<span class="spill ${m ? 'done' : x.bad > x.ok ? 'bad' : 'now'}" title="맞힘 ${x.ok} · 틀림 ${x.bad}">${m ? '✓' : '▶'} ${esc(v.base)} <small>${x.ok}/${x.ok + x.bad}${m ? ' · 암기' : ''}</small></span>`; }).join('');
       return `<div class="gu ${full ? 'fin' : c ? 'ing' : ''}"><div class="gu-h"><div class="gu-t"><b>${esc(ivStageName(n))}</b> <span class="tiny">${vs[0].no}~${vs[vs.length - 1].no}번</span>
-        <div class="tiny">외운 ${c}/${vs.length} · 암기 ${mastered} · 복습 ${due}개${ok + bad ? ' · 정답률 ' + Math.round(ok / (ok + bad) * 100) + '%' : ''}${last ? ' · 마지막 ' + fmtDT(last) : ''}</div></div></div>
+        <div class="tiny">외운 ${c}/${vs.length} · 암기 ${mastered} · 복습 ${due}개${ok + bad ? ' · 정답률 ' + Math.round(ok / (ok + bad) * 100) + '%' : ''}${last ? ' · 마지막 ' + fmtDT(last) : ''}</div></div><div class="row noprint" style="gap:6px;flex-wrap:wrap">${weak.length ? `<button class="btn small ghost" data-ivrl="${n}" data-mode="weak" title="틀림이 맞힘보다 많은 동사만 다시 배우게 해요. 기록은 그대로 쌓여요">🔄 틀린 ${weak.length}개 재학습</button>` : ''}${rlN ? `<button class="btn small ghost" data-ivrl="${n}" data-mode="all" title="이 단계 동사를 전부 다시 배우게 해요. 기록은 그대로 쌓여요">🔄 단계 재학습</button>` : ''}</div></div>
         <div class="spills">${chips}</div></div>`; }).join('');
     const days7 = new Set(ivD.filter(x => x.day >= addDays(kst, -6) && (x.new_n || x.rev_n)).map(x => x.day)).size;
     const ivTot = stg.reduce((n, k) => n + ivStageVerbs(k).length, 0), ivHave = stg.reduce((n, k) => n + ivStageVerbs(k).filter(v => have.has(v.no)).length, 0);
@@ -372,6 +373,15 @@ function stuBind(sid) {
     const { error } = await S.sb.from('iv_assign').upsert([row], { onConflict: 'student_id' }); if (error) return toast(errText(error), 4000);
     STU.ivA = STU.ivA.filter(x => x.student_id !== sid).concat([row]); toast(ivStageName(nx) + ' 추가했어요'); stuView(sid);
   };
+  document.querySelectorAll('[data-ivrl]').forEach(b => b.onclick = async () => {   // 단계별 재학습: 틀린 동사만 / 단계 전체
+    const n = +b.dataset.ivrl, weakOnly = b.dataset.mode === 'weak';
+    const nos = (STU.ivP || []).filter(x => x.student_id === sid && IV_BY.has(x.verb_no) && ivStageOf(x.verb_no) === n && !x.relearn && (!weakOnly || x.bad > x.ok)).map(x => x.verb_no);
+    if (!nos.length) return;
+    if (!confirm(`${ivStageName(n)}의 ${weakOnly ? '틀린 동사 ' : '동사 '}${nos.length}개를 새 동사처럼 다시 배우게 할까요?
+지금까지의 맞힘·틀림·학습 기록은 지우지 않고 그대로 쌓아요.`)) return;
+    const { error } = await S.sb.from('iv_progress').update({ relearn: true }).eq('student_id', sid).in('verb_no', nos); if (error) return toast(errText(error), 4000);
+    STU.ivP.forEach(x => { if (x.student_id === sid && nos.includes(x.verb_no)) x.relearn = true; }); toast(`${nos.length}개를 다시 배우도록 표시했어요`); stuView(sid);
+  });
   if ($('#ivrelearn')) $('#ivrelearn').onclick = async () => {
     if (!confirm('배운 동사를 모두 새 동사처럼 다시 배우게 할까요?\n지금까지의 맞힘·틀림·학습 기록은 지우지 않고 그대로 쌓아요.')) return;
     const { error } = await S.sb.from('iv_progress').update({ relearn: true }).eq('student_id', sid); if (error) return toast(errText(error), 4000);
