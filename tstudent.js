@@ -83,7 +83,7 @@ async function stuLoad(force) {
   try { const r = await sb.rpc('vocab_time_overview', { p_days: 120 }); STU.vtime = r.error ? [] : (r.data || []); } catch (e) { STU.vtime = []; }
   try {
     const g = await sb.from('iv_assign').select('*'); STU.ivA = g.error ? [] : (g.data || []);
-    STU.ivP = await vFetchAll(() => sb.from('iv_progress').select('student_id,verb_no,box,due_on,ok,bad,last_at').order('student_id').order('verb_no'));
+    STU.ivP = await vFetchAll(() => sb.from('iv_progress').select('student_id,verb_no,box,due_on,ok,bad,last_at,relearn,rounds').order('student_id').order('verb_no'));
     const d = await sb.from('iv_day').select('*').gte('day', addDays(kstToday(), -120)); STU.ivD = d.error ? [] : (d.data || []);
   } catch (e) { STU.ivA = []; STU.ivP = []; STU.ivD = []; }
   try { const r = await sb.from('book_archive').select('*'); STU.arch = r.error ? [] : (r.data || []); } catch (e) { STU.arch = []; }
@@ -295,13 +295,13 @@ function stuView(sid) {
   const ivTodayD = ivD.find(x => x.day === kst) || { new_n: 0, rev_n: 0, ok: 0, total: 0, sec: 0 };
   let ivHtml = '';
   if (ivA) {
-    const have = new Set(ivP.map(x => x.verb_no)), dueN = ivP.filter(x => x.due_on <= kst).length, mst = ivP.filter(x => x.box >= 5).length;
+    const have = new Set(ivP.map(x => x.verb_no)), dueN = ivP.filter(x => !x.relearn && x.due_on <= kst).length, waitN = ivP.filter(x => x.relearn).length, mst = ivP.filter(x => x.box >= 5).length;
     const stg = (ivA.stages || []).filter(n => IV_STAGES.includes(n)).sort((x, y) => x - y);
     /* 단계마다 한 줄 — 외운·암기·복습·정답률·마지막 학습과, 동사 하나하나의 상태(칩) */
     let ivNDone = 0, ivNIng = 0;
     const stageRows = stg.map(n => {
       const vs = ivStageVerbs(n), ps = vs.map(v => ivP.find(x => x.verb_no === v.no)), got = ps.filter(Boolean);
-      const c = got.length, full = c === vs.length, mastered = got.filter(x => x.box >= 5).length, due = got.filter(x => x.due_on <= kst).length;
+      const c = got.length, full = c === vs.length, mastered = got.filter(x => x.box >= 5).length, due = got.filter(x => !x.relearn && x.due_on <= kst).length;
       const ok = got.reduce((s, x) => s + (x.ok || 0), 0), bad = got.reduce((s, x) => s + (x.bad || 0), 0);
       const last = got.map(x => x.last_at).filter(Boolean).sort().pop();
       if (full) ivNDone++; else if (c) ivNIng++;
@@ -312,8 +312,8 @@ function stuView(sid) {
         <div class="spills">${chips}</div></div>`; }).join('');
     const days7 = new Set(ivD.filter(x => x.day >= addDays(kst, -6) && (x.new_n || x.rev_n)).map(x => x.day)).size;
     const ivTot = stg.reduce((n, k) => n + ivStageVerbs(k).length, 0), ivHave = stg.reduce((n, k) => n + ivStageVerbs(k).filter(v => have.has(v.no)).length, 0);
-    ivHtml = (lcard('🔁', '불규칙동사', `<em class="f">✓ 완료 ${ivNDone}</em><em class="i">▶ 진행 ${ivNIng}</em><em class="n">· 시작 전 ${stg.length - ivNDone - ivNIng}</em><span class="tiny">외운 ${ivHave}/${ivTot}개 · 암기 ${mst} · 복습 ${dueN} · 하루 ${ivA.per_day}개 · 최근 7일 ${days7}일</span>`, ivTot ? ivHave / ivTot * 100 : 0, `<div class="ivbody"><div class="row between" style="flex-wrap:wrap;gap:6px;padding:10px 12px"><div><h3>하루 ${ivA.per_day}개 · ${stg.length}개 단계 배정</h3><span class="tiny">외운 동사 ${have.size}개 · 완전 암기 ${mst}개 · 밀린 복습 ${dueN}개 · 최근 7일 ${days7}일 학습</span></div>
-      <div class="row" style="gap:6px">${(() => { const nx = IV_STAGES.find(n => !stg.includes(n) && n > (stg.length ? stg[stg.length - 1] : 0)); return nx == null ? '' : `<button class="btn small" id="ivnext" data-nx="${nx}" style="${ivTot && ivHave === ivTot ? 'background:#16a34a;border-color:#16a34a;color:#fff' : ''}">${ivStageName(nx)} 추가 ▶</button>`; })()}<button class="btn small ghost" id="ivreset">처음부터</button><button class="btn small ghost" id="ivdel" style="color:#dc2626">배정 해제</button></div></div>
+    ivHtml = (lcard('🔁', '불규칙동사', `<em class="f">✓ 완료 ${ivNDone}</em><em class="i">▶ 진행 ${ivNIng}</em><em class="n">· 시작 전 ${stg.length - ivNDone - ivNIng}</em><span class="tiny">외운 ${ivHave}/${ivTot}개 · 암기 ${mst} · 복습 ${dueN} · 하루 ${ivA.per_day}개 · 최근 7일 ${days7}일</span>`, ivTot ? ivHave / ivTot * 100 : 0, `<div class="ivbody"><div class="row between" style="flex-wrap:wrap;gap:6px;padding:10px 12px"><div><h3>하루 ${ivA.per_day}개 · ${stg.length}개 단계 배정</h3><span class="tiny">외운 동사 ${have.size}개 · 완전 암기 ${mst}개 · 밀린 복습 ${dueN}개${waitN ? ` · 다시 배울 동사 ${waitN}개` : ''} · 최근 7일 ${days7}일 학습</span></div>
+      <div class="row" style="gap:6px">${(() => { const nx = IV_STAGES.find(n => !stg.includes(n) && n > (stg.length ? stg[stg.length - 1] : 0)); return nx == null ? '' : `<button class="btn small" id="ivnext" data-nx="${nx}" style="${ivTot && ivHave === ivTot ? 'background:#16a34a;border-color:#16a34a;color:#fff' : ''}">${ivStageName(nx)} 추가 ▶</button>`; })()}<button class="btn small ghost" id="ivrelearn" title="배운 동사를 새 동사처럼 다시 배우게 해요. 기록은 그대로 쌓여요">🔄 재학습</button><button class="btn small ghost" id="ivreset">처음부터</button><button class="btn small ghost" id="ivdel" style="color:#dc2626">배정 해제</button></div></div>
       ${stageRows || '<div class="spills"><span class="tiny">배정된 단계가 없어요</span></div>'}
       <div class="stu-set">${(ivA.settings && ivA.settings.no_daily_limit) ? `오늘 새 ${ivTodayD.new_n}개 (${ivA.per_day}개씩 · 하루 제한 없음)` : `오늘 새 ${ivTodayD.new_n}/${ivA.per_day}개`} · 복습 ${ivTodayD.rev_n}개 · 정답 ${ivTodayD.ok}/${ivTodayD.total} · 시간 ${ivTodayD.sec ? stuMin(ivTodayD.sec) : '-'}${(ivA.settings && ivA.settings.hint === false) ? ' · 쓰기 힌트 끔' : ''}</div>
       </div>`, '🔁 불규칙동사'));
@@ -371,6 +371,11 @@ function stuBind(sid) {
     const row = Object.assign({}, old, { stages: [...new Set([...(old.stages || []), nx])].sort((a, b) => a - b), updated_at: new Date().toISOString() });
     const { error } = await S.sb.from('iv_assign').upsert([row], { onConflict: 'student_id' }); if (error) return toast(errText(error), 4000);
     STU.ivA = STU.ivA.filter(x => x.student_id !== sid).concat([row]); toast(ivStageName(nx) + ' 추가했어요'); stuView(sid);
+  };
+  if ($('#ivrelearn')) $('#ivrelearn').onclick = async () => {
+    if (!confirm('배운 동사를 모두 새 동사처럼 다시 배우게 할까요?\n지금까지의 맞힘·틀림·학습 기록은 지우지 않고 그대로 쌓아요.')) return;
+    const { error } = await S.sb.from('iv_progress').update({ relearn: true }).eq('student_id', sid); if (error) return toast(errText(error), 4000);
+    STU.ivP.forEach(x => { if (x.student_id === sid) x.relearn = true; }); toast('다시 배우도록 표시했어요'); stuView(sid);
   };
   if ($('#ivreset')) $('#ivreset').onclick = async () => {
     if (!confirm('이 학생의 불규칙동사 학습 기록을 모두 지우고 처음부터 다시 시작할까요?')) return;

@@ -60,7 +60,7 @@ async function ivLoad(force) {
     const a = await sb.from('iv_assign').select('*').eq('student_id', me).maybeSingle();
     if (a.error) throw a.error;
     IV.asg = a.data || null;
-    const p = await sb.from('iv_progress').select('verb_no,box,due_on,ok,bad,last_at').eq('student_id', me);
+    const p = await sb.from('iv_progress').select('verb_no,box,due_on,ok,bad,last_at,relearn,rounds').eq('student_id', me);
     IV.prog = p.error ? [] : (p.data || []).filter(x => IV_BY.has(x.verb_no));
     const d = await sb.from('iv_day').select('*').eq('student_id', me).order('day', { ascending: false }).limit(30);
     IV.day = d.error ? [] : (d.data || []);
@@ -72,9 +72,10 @@ const ivCfg = () => { const s = (IV.asg && IV.asg.settings) || {}; return { per_
 const ivStages = () => ((IV.asg && IV.asg.stages) || []).filter(n => IV_STAGES.includes(n)).sort((a, b) => a - b);
 const ivDay = () => IV.day.find(d => d.day === ivToday()) || { new_n: 0, rev_n: 0, ok: 0, total: 0, sec: 0 };
 const ivLearned = () => new Set(IV.prog.map(p => p.verb_no));
-const ivDue = () => { const t = ivToday(); return IV.prog.filter(p => p.due_on <= t).sort((a, b) => a.due_on.localeCompare(b.due_on)); };
+const ivDoneSet = () => new Set(IV.prog.filter(p => !p.relearn).map(p => p.verb_no));   // 다시 배우기로 표시한 동사는 새 동사처럼 다시 나와요 (기록은 그대로 쌓임)
+const ivDue = () => { const t = ivToday(); return IV.prog.filter(p => !p.relearn && p.due_on <= t).sort((a, b) => a.due_on.localeCompare(b.due_on)); };
 function ivNewPool() {
-  const done = ivLearned(), st = ivStages();
+  const done = ivDoneSet(), st = ivStages();
   return IV_ALL.filter(v => st.includes(ivStageOf(v.no)) && !done.has(v.no));
 }
 /* 하루 제한 없음(settings.no_daily_limit): 한 묶음(per_day개)을 끝내면 바로 다음 묶음을 이어서 배운다 */
@@ -154,9 +155,11 @@ async function ivHome() {
   ivChantStop();
   await ivLoad(true);
   const cfg = ivCfg(), left = ivNewLeft(), pool = ivNewPool(), due = ivDue(), nNew = Math.min(left, pool.length), day = ivDay();
-  const learned = ivLearned(), st = ivStages();
-  const stageChips = st.map(s => { const vs = ivStageVerbs(s), n = vs.filter(v => learned.has(v.no)).length; return `<span>${ivStageName(s)} <b>${n}/${vs.length}</b></span>`; }).join('');
+  const learned = ivLearned(), doneSet = ivDoneSet(), st = ivStages();
+  const stageChips = st.map(s => { const vs = ivStageVerbs(s), n = vs.filter(v => doneSet.has(v.no)).length; return `<span>${ivStageName(s)} <b>${n}/${vs.length}</b></span>`; }).join('');
   const mastered = IV.prog.filter(p => p.box >= 5).length;
+  const sumOk = IV.prog.reduce((n, p) => n + (p.ok || 0), 0), sumBad = IV.prog.reduce((n, p) => n + (p.bad || 0), 0), rounds = IV.prog.reduce((n, p) => n + Math.max(0, (p.rounds || 1) - 1), 0), waitN = IV.prog.filter(p => p.relearn).length;
+  const rlStages = st.filter(s => ivStageVerbs(s).some(v => IV.prog.some(p => p.verb_no === v.no && !p.relearn)));
   shell(`<p><a href="#" id="back">← 처음으로</a></p><h1>🔁 불규칙동사</h1>
     <div class="card"><h3 style="margin:0 0 8px">오늘의 목표</h3>
       ${ivNoLimit() ? `<div class="goal ${pool.length ? '' : 'done'}"><span>${pool.length ? '○' : '✓'}</span> 새 동사 ${day.new_n}개 배웠어요 · ${cfg.per_day}개씩 끝나면 이어서 배워요</div>` : `<div class="goal ${day.new_n >= cfg.per_day || !pool.length ? 'done' : ''}"><span>${day.new_n >= cfg.per_day || !pool.length ? '✓' : '○'}</span> 새 동사 ${Math.min(day.new_n, cfg.per_day)} / ${cfg.per_day}개 배우기</div>`}
@@ -167,13 +170,25 @@ async function ivHome() {
       </div>
       ${!nNew && !due.length ? '<div class="tiny" style="margin-top:8px">오늘 할 일을 모두 끝냈어요! 내일 또 만나요 👏</div>' : ''}
     </div>
-    <div class="card"><div class="row between"><b>내 단계</b><span class="tiny">외운 동사 ${learned.size}개 · 완전 암기 ${mastered}개</span></div><div class="ivstage">${stageChips || '<span>아직 배정된 단계가 없어요</span>'}</div></div>
+    <div class="card"><div class="row between"><b>내 단계</b><span class="tiny">외운 동사 ${learned.size}개 · 완전 암기 ${mastered}개</span></div><div class="ivstage">${stageChips || '<span>아직 배정된 단계가 없어요</span>'}</div>
+      ${sumOk + sumBad ? `<div class="tiny" style="margin-top:8px">지금까지 쌓인 기록 · 맞힘 ${sumOk}번 · 틀림 ${sumBad}번${rounds ? ` · 다시 배운 횟수 ${rounds}번` : ''}</div>` : ''}</div>
+    ${rlStages.length || waitN ? `<div class="card"><div class="row between"><b>🔄 다시 배우기</b><span class="tiny">기록은 지워지지 않고 계속 쌓여요</span></div>
+      ${waitN ? `<div class="tiny" style="margin:6px 0">다시 배울 동사 <b>${waitN}개</b>가 위의 ‘새 동사’로 나와요</div>` : ''}
+      <div class="ivstage">${rlStages.map(s => `<button class="btn small ghost" data-rl="${s}">${ivStageName(s)} 다시 배우기</button>`).join('')}${rlStages.length > 1 ? '<button class="btn small" data-rl="all">전부 다시 배우기</button>' : ''}</div></div>` : ''}
     <div class="card"><div class="row between"><b>📖 내 동사 사전</b><span class="tiny">배운 동사를 눌러 다시 봐요</span></div>
       <div class="ivlist" style="margin-top:8px">${[...learned].sort((a, b) => a - b).map(n => { const v = IV_BY.get(n); return v ? `<button data-vw="${n}"><b>${esc(v.base)} – ${esc(v.past)} – ${esc(v.pp)}</b><i>${esc(v.ko)}</i></button>` : ''; }).join('') || '<div class="tiny">새 동사를 배우면 여기에 모여요.</div>'}</div></div>`);
   $('#back').onclick = e => { e.preventDefault(); studentHome(); };
   if ($('#ivnew')) $('#ivnew').onclick = () => ivLearn(pool.slice(0, nNew));
   if ($('#ivrev')) $('#ivrev').onclick = () => ivReview(due.slice(0, cfg.review_cap).map(p => IV_BY.get(p.verb_no)).filter(Boolean));
   document.querySelectorAll('[data-vw]').forEach(b => b.onclick = () => ivBrowse(IV_BY.get(+b.dataset.vw)));
+  document.querySelectorAll('[data-rl]').forEach(b => b.onclick = async () => {
+    const k = b.dataset.rl, nos = IV.prog.filter(p => !p.relearn && (k === 'all' || ivStageOf(p.verb_no) === +k)).map(p => p.verb_no);
+    if (!nos.length) return;
+    b.disabled = true;
+    const { error } = await S.sb.rpc('iv_relearn', { p_verbs: nos });
+    if (error) { b.disabled = false; return toast('잠시 후 다시 눌러 주세요'); }
+    ivHome();
+  });
 }
 
 /* ---------- 카드(보고 듣기) ---------- */
