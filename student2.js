@@ -109,7 +109,8 @@ function s2Steps(a) {
   }
   return steps;
 }
-const s2UnitNo = x => { const m = String((x.a.units || {}).code || '').match(/(\d+)\s*$/); return m ? Number(m[1]) : 999; };
+const s2UnitNo = x => { const c = String((x.a.units || {}).code || ''), t = c.match(/^BC-T(\d+)$/); if (t) return Number(t[1]) * 8 + 0.5;   // 단계 통과 테스트(T1·T2…)는 그 단계 마지막 유닛(U8·U16…) 바로 뒤
+  const m = c.match(/(\d+)\s*$/); return m ? Number(m[1]) : 999; };
 function s2Due(a) {
   if (!a.due_date) return '';
   const d = Math.round((new Date(a.due_date + 'T00:00:00+09:00') - new Date(kdate(new Date()) + 'T00:00:00+09:00')) / 864e5);
