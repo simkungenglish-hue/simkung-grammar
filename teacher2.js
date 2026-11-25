@@ -154,7 +154,7 @@ function buildSnap(sid, days = 0, rnd = 0) {
     x.arr.forEach(a => o.ds.add(dayKey(a.submitted_at))); uMap.set(u.id, o);
   }
   const unitShort = u => { const t = String(u.title || '').replace(/^\s*\d+과\s*/, '').trim(); return ((u.lesson ? u.lesson + ' ' : '') + t).trim() || String(u.title || ''); };
-  const units = [...uMap.values()].sort((a, b) => (parseInt(a.u.lesson) || 0) - (parseInt(b.u.lesson) || 0) || String(a.u.code).localeCompare(String(b.u.code))).map(o => {
+  const units = [...uMap.values()].sort((a, b) => unitSort(a.u, b.u)).map(o => {
     const ds = [...o.ds].sort(); return { book: o.u.school_book || '심쿵문법', name: unitShort(o.u), n: o.n, pct: o.g >= MIN_TAG ? pct(o.f, o.g) : null, first: ds[0] || '', last: ds[ds.length - 1] || '' };
   });
   const bad = /[\\/:*?"<>|]/g;
@@ -351,7 +351,7 @@ async function tabQuestions() {
       return `<div class="qcard" data-book="${esc(b)}"><div class="qt">${esc(g || pub)}</div><div class="tiny">단원 ${us.length}개 · 문제 ${st.n}개</div><div style="margin-top:6px">${statBadge(st)}</div></div>`;
     }).join('')}</div>`).join('') || '<p class="muted">아직 단원이 없어요.</p>';
   } else if (view === 'book') {
-    const us = unitsOf(QB).sort((x, y) => (parseInt(x.lesson) || 0) - (parseInt(y.lesson) || 0) || String(x.code).localeCompare(String(y.code)));
+    const us = unitsOf(QB).sort(unitSort);
     body = `<div class="grid2">${us.map(x => { const st = qStat(T.questions.filter(q => q.unit_id === x.id));
       return `<div class="qcard" data-unit="${x.id}"><div class="qt">${esc(x.title)}</div><div class="tiny">문제 ${st.n}개</div><div style="margin-top:6px">${statBadge(st)}</div></div>`; }).join('')}</div>`;
   } else if (view === 'unit') {

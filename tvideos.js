@@ -37,7 +37,7 @@ async function tabVideos() {
   const vidCount = b => new Set(TV.vids.filter(v => v.school_book === b).map(v => v.yt_id)).size;
   if (!TV.book || !books.includes(TV.book)) TV.book = books.slice().sort((a, b) => vidCount(b) - vidCount(a))[0] || books[0];
   const units = T.units.filter(u => u.school_book === TV.book)
-    .sort((a, b) => (parseInt(a.lesson) || 999) - (parseInt(b.lesson) || 999) || String(a.code).localeCompare(String(b.code)));
+    .sort(unitSort);
   const total = TV.vids.length;
   const tvLen2 = s => tvLen(s);
   const isCh = /천일문/.test(TV.book);
@@ -76,7 +76,7 @@ async function tabVideos() {
   }
   const bcNo = u => { const m = String(u.code || '').match(/(\d+)\s*$/); return m ? Number(m[1]) : 999; };
   const bcGrid = () => {
-    const us = units.slice().sort((a, b) => bcNo(a) - bcNo(b) || String(a.code).localeCompare(String(b.code)));
+    const us = units.slice().sort(unitSort);
     const nVid = us.filter(u => TV.vids.some(v => v.unit_id === u.id)).length;
     return `<div class="tiny" style="margin:0 0 8px">유닛 ${us.length}개 · 영상이 있는 유닛 ${nVid}개 — 썸네일을 누르면 미리보기로 재생돼요.</div><div class="bcv-grid">${us.map(u => {
       const code = String(u.code || '').replace(/^BC-/, ''), title = String(u.title || '').replace(/^U\d+\s*/, '');

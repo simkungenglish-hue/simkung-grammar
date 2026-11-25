@@ -362,6 +362,10 @@ function gradeRank(g) { const m = String(g || '').match(/(초|중|고)\s*(\d)/);
 function bookRank(b) { const m = String(b || '').match(/(초|중|고)\s*\d/); return gradeRank(m ? m[0] : ''); }
 function unitSort(a, b) {
   const nm = x => { const m = String(x == null ? '' : x).match(/\d+/); return m ? +m[0] : 1e9; };
+  /* 부트캠프: 유닛(BC-U10)은 번호 순서, 단계 통과 테스트(BC-T2)는 그 단계 마지막 유닛(U16) 바로 뒤에 와요 */
+  const bc = u => { const m = String((u && u.code) || '').match(/^BC-([UT])(\d+)$/); return m ? (m[1] === 'T' ? +m[2] * 8 + 0.5 : +m[2]) : null; };
+  const ba = bc(a), bb = bc(b);
+  if (ba != null && bb != null && ba !== bb) return ba - bb;
   return nm(a.lesson) - nm(b.lesson) || nm(a.code) - nm(b.code)
     || String(a.lesson || '').localeCompare(String(b.lesson || ''), 'ko', { numeric: true })
     || String(a.code || '').localeCompare(String(b.code || ''), 'ko', { numeric: true }); }
