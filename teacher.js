@@ -210,24 +210,30 @@ function tabToday() {
     const td = at.filter(a => dayKey(a.submitted_at) === today);
     const g = td.filter(a => a.status === 'graded');
     const pend = at.filter(a => a.status === 'needs_review').length;
-    return { s, at, td, g, pend, last: at[0], acc: g.length ? pct(g.filter(a => a.is_correct).length, g.length) : null };
+    /* 문법 말고 어휘·내신 본문·불규칙동사로 오늘 학습한 것도 '오늘 학습'과 학습 시간에 넣어요 (자료가 불러와진 뒤) */
+    const ex = (typeof STU !== 'undefined' && STU.loaded && typeof window.stuCollect === 'function') ? window.stuCollect(s.id).get(today) : null;
+    const on = td.length > 0 || !!(ex && (ex.total > 0 || ex.v.length || ex.p.length || ex.iv));
+    return { s, at, td, g, pend, ex, on, last: at[0], acc: g.length ? pct(g.filter(a => a.is_correct).length, g.length) : null };
   });
+  const timeOf = i => i.ex && i.ex.total > 0
+    ? fmtDur(i.ex.total) + `<div class="tiny">${[['문법', i.ex.gsec], ['어휘', i.ex.vs], ['본문', i.ex.ps], ['불규칙', i.ex.is]].filter(x => x[1] > 0).map(x => x[0] + ' ' + fmtDur(x[1])).join(' · ')}</div>`
+    : i.td.length ? timeCell(i.td) : i.on ? '<span class="muted">기록 없음</span>' : '-';
   const subTotal = info.reduce((n, i) => n + i.td.length, 0);
   const gAll = info.reduce((n, i) => n + i.g.length, 0), cAll = info.reduce((n, i) => n + i.g.filter(a => a.is_correct).length, 0);
   const accAll = gAll ? pct(cAll, gAll) : null;
   const pendAll = T.attempts.filter(a => a.status === 'needs_review').length;
-  const active = info.filter(i => i.td.length).length;
+  const active = info.filter(i => i.on).length;
   const wd = '일월화수목금토'[new Date().getDay()], d = new Date();
-  const list = info.filter(i => f === 'on' ? i.td.length : f === 'off' ? !i.td.length : f === 'pend' ? i.pend : true)
-    .sort((a, b) => (b.td.length - a.td.length) || a.s.name.localeCompare(b.s.name, 'ko'));
+  const list = info.filter(i => f === 'on' ? i.on : f === 'off' ? !i.on : f === 'pend' ? i.pend : true)
+    .sort((a, b) => (b.on - a.on) || (b.td.length - a.td.length) || a.s.name.localeCompare(b.s.name, 'ko'));
   const accCls = v => v == null ? '' : v >= 80 ? 'ok' : v >= 60 ? 'mid' : 'low';
-  const cards = list.map(i => `<article class="scard ${i.td.length ? 'on' : ''}">
+  const cards = list.map(i => `<article class="scard ${i.on ? 'on' : ''}">
       <div class="sh"><div class="av">${esc(String(i.s.name).slice(0, 1))}</div>
         <div class="sn"><b>${esc(i.s.name)}</b><span>${esc(i.s.grade)}</span></div>
-        <span class="st ${i.td.length ? 'on' : ''}">${i.td.length ? '오늘 학습함' : '오늘 학습 없음'}</span></div>
+        <span class="st ${i.on ? 'on' : ''}">${i.on ? '오늘 학습함' : '오늘 학습 없음'}</span></div>
       <div class="sm">
         <div><small>오늘 제출</small><b>${i.td.length}<em>회</em></b></div>
-        <div><small>학습 시간</small><b class="t">${i.td.length ? timeCell(i.td) : '-'}</b></div>
+        <div><small>학습 시간</small><b class="t">${timeOf(i)}</b></div>
         <div><small>정답률</small><b class="${accCls(i.acc)}">${i.acc == null ? '-' : i.acc + '<em>%</em>'}</b></div>
       </div>
       <div class="sprog">${progressRows(i.s.id)}</div>
@@ -236,7 +242,7 @@ function tabToday() {
   const seg = (k, n, c) => `<button class="seg ${f === k ? 'on' : ''}" data-f="${k}">${n}<em>${c}</em></button>`;
   $('#tb').innerHTML = `
     <section class="hero"><div><small>${d.getMonth() + 1}월 ${d.getDate()}일 ${wd}요일</small><h1>오늘 현황</h1>
-      <p>${active ? `오늘 ${active}명이 ${subTotal}번 제출했어요.` : '오늘은 아직 제출한 학생이 없어요.'}${pendAll ? ` 채점이 필요한 답안이 ${pendAll}건 있어요.` : ''}</p></div>
+      <p>${active ? `오늘 ${active}명이 학습했고 문법 ${subTotal}번 제출했어요.` : '오늘은 아직 학습한 학생이 없어요.'}${pendAll ? ` 채점이 필요한 답안이 ${pendAll}건 있어요.` : ''}</p></div>
       <div class="upd">마지막 새로고침<br><b>${fmtDT(T.lastLoad)}</b></div></section>
     <section class="kpis">
       <div class="kpi"><small>오늘 제출</small><b>${subTotal}<em>회</em></b><span>${active}명 학습</span></div>

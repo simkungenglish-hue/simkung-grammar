@@ -210,6 +210,12 @@ function stuView(sid) {
   const kst = typeof kstToday === 'function' ? kstToday() : today;
   const vT0 = vSum(kst), vT7 = vSum(addDays(kst, -6));
   const gSec = list => timeSum(list).sec;
+  /* 오늘·최근 7일 학습 시간: 문법 + 어휘 + 내신 본문 + 불규칙동사를 모두 더해요 (학습 달력과 같은 계산) */
+  const colD = typeof window.stuCollect === 'function' ? window.stuCollect(sid) : new Map(), from7 = addDays(kst, -6), dayO = colD.get(kst);
+  const W0 = dayO ? { g: dayO.gsec, v: dayO.vs, p: dayO.ps, i: dayO.is } : { g: gSec(gToday), v: vT0, p: 0, i: 0 };
+  const W7 = { g: 0, v: 0, p: 0, i: 0 }; if (colD.size) colD.forEach((o, k) => { if (k >= from7 && k <= kst) { W7.g += o.gsec; W7.v += o.vs; W7.p += o.ps; W7.i += o.is; } }); else { W7.g = gSec(gAll7); W7.v = vT7; }
+  const wSum = w => w.g + w.v + w.p + w.i, wTxt = w => `문법 ${stuMin(w.g)} · 어휘 ${stuMin(w.v)} · 본문 ${stuMin(w.p)} · 불규칙 ${stuMin(w.i)}`;
+  const todayAny = !!(gToday.length || wSum(W0) || (dayO && (dayO.v.length || dayO.p.length || dayO.iv)));
   const vo = (VT.ov && VT.ov.students || []).find(x => x.student_id === sid) || {};
 
   /* 학습 시간 14일 */
@@ -338,12 +344,12 @@ function stuView(sid) {
     <div class="row between noprint" style="margin-bottom:8px"><button class="btn ghost small" id="stuback">← 전체 학생</button>
       <span class="row" style="gap:6px"><select id="stuswitch">${T.students.map(x => `<option value="${x.id}" ${x.id === sid ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select><button class="btn ghost small" id="sturl">새로고침</button></span></div>
     <section class="hero"><div><small>학생 화면</small><h1>${esc(s.name)} <span style="font-size:15px;font-weight:600;opacity:.8">${esc(s.grade || '')}</span></h1>
-      <p>어휘 ${vInfo.length}권 · 문법 ${asgs.length}단원 · 내신 본문 ${pInfo.length}개 배정${gToday.length || vT0 ? ` · 오늘 ${vT0 + gSec(gToday) > 0 ? stuMin(vT0 + gSec(gToday)) : '학습 있음'} 학습` : ' · 오늘 학습 없음'}</p></div>
+      <p>어휘 ${vInfo.length}권 · 문법 ${asgs.length}단원 · 내신 본문 ${pInfo.length}개 배정${todayAny ? ` · 오늘 ${wSum(W0) > 0 ? stuMin(wSum(W0)) : '학습 있음'} 학습` : ' · 오늘 학습 없음'}</p></div>
       <div class="upd">마지막 새로고침<br><b>${fmtDT(T.lastLoad)}</b><div class="hbtns noprint"><button id="stureport2">📄 학습 리포트 만들기</button><button id="stureport">문법 상세·오답노트</button></div></div></section>
     <section class="kpis k5">
       <div class="kpi calk" data-cal="1" title="눌러서 학습 달력 보기"><small>마지막 학습 📅</small><b style="font-size:1.35rem">${lastStudy.t ? fmtDT(lastStudy.t) : '-'}</b><span>${lastStudy.t ? esc(lastStudy.src) + ' · ' + lastStudy.ago : '학습 기록 없음'}</span></div>
-      <div class="kpi calk" data-cal="1" title="눌러서 학습 달력 보기"><small>오늘 학습 시간 📅</small><b>${stuMin(vT0 + gSec(gToday))}</b><span>어휘 ${stuMin(vT0)} · 문법 ${stuMin(gSec(gToday))}</span></div>
-      <div class="kpi calk" data-cal="1" title="눌러서 학습 달력 보기"><small>최근 7일 (총 학습시간) 📅</small><b>${stuMin(vT7 + gSec(gAll7))}</b><span>어휘 ${stuMin(vT7)} · 문법 ${stuMin(gSec(gAll7))}</span></div>
+      <div class="kpi calk" data-cal="1" title="눌러서 학습 달력 보기"><small>오늘 학습 시간 📅</small><b>${stuMin(wSum(W0))}</b><span>${wTxt(W0)}</span></div>
+      <div class="kpi calk" data-cal="1" title="눌러서 학습 달력 보기"><small>최근 7일 (총 학습시간) 📅</small><b>${stuMin(wSum(W7))}</b><span>${wTxt(W7)}</span></div>
       <div class="kpi"><small>어휘</small><b>${vo.learned || 0}<em>개</em></b><span>외운 단어 · 밀린 복습 ${vo.due || 0}개</span></div>
       <div class="kpi"><small>문법 오늘</small><b>${gToday.length}<em>회</em></b><span>${gr.length ? '정답률 ' + pct(gr.filter(a => a.is_correct).length, gr.length) + '%' : '채점 완료 없음'}</span></div>
     </section>
